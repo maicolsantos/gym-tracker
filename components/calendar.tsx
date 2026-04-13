@@ -1,45 +1,19 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight, Dumbbell, LogOut } from "lucide-react"
+import { ChevronLeft, ChevronRight, Dumbbell, LogOut, Users } from "lucide-react"
 import { doc, getDoc, updateDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { getDb } from "@/lib/firebase"
 import { useAuth } from "@/contexts/auth-context"
-
-const MONTHS = [
-  "Janeiro",
-  "Fevereiro",
-  "Março",
-  "Abril",
-  "Maio",
-  "Junho",
-  "Julho",
-  "Agosto",
-  "Setembro",
-  "Outubro",
-  "Novembro",
-  "Dezembro",
-]
-
-const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
-
-function getDaysInMonth(year: number, month: number) {
-  return new Date(year, month + 1, 0).getDate()
-}
-
-function getFirstDayOfMonth(year: number, month: number) {
-  return new Date(year, month, 1).getDay()
-}
-
-function formatDateKey(year: number, month: number, day: number) {
-  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-}
+import { MONTHS, WEEKDAYS, getDaysInMonth, getFirstDayOfMonth, formatDateKey } from "@/lib/date-utils"
 
 export function Calendar() {
   const { user, signOut } = useAuth()
+  const router = useRouter()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set())
 
@@ -171,6 +145,7 @@ export function Calendar() {
   }
 
   return (
+    <>
     <div className="grid gap-6 lg:grid-cols-3">
       {/* Calendar Card */}
       <Card className="lg:col-span-2">
@@ -178,9 +153,12 @@ export function Calendar() {
           <div className="flex items-center justify-between mb-4">
             <CardTitle className="flex items-center gap-2">
               <Dumbbell className="h-5 w-5" />
-              Tracker de Ginásio
+              Tracker Ginásio
             </CardTitle>
             <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={() => router.push("/friends")} title="Amigos">
+                <Users className="h-4 w-4" />
+              </Button>
               {user?.photoURL && (
                 <img
                   src={user.photoURL}
@@ -262,5 +240,6 @@ export function Calendar() {
         </CardContent>
       </Card>
     </div>
+    </>
   )
 }
