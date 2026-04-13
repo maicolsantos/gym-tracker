@@ -1,6 +1,7 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app"
 import { getAuth as _getAuth, GoogleAuthProvider, type Auth } from "firebase/auth"
 import { getFirestore as _getFirestore, type Firestore } from "firebase/firestore"
+import { getAnalytics as _getAnalytics, isSupported, type Analytics } from "firebase/analytics"
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -36,6 +37,12 @@ export function getDb() {
     db = _getFirestore(getApp())
   }
   return db
+}
+
+export async function initAnalytics() {
+  if (typeof window !== "undefined" && await isSupported()) {
+    _getAnalytics(getApp())
+  }
 }
 
 export function getGoogleProvider() {
