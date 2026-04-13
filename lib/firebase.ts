@@ -1,6 +1,6 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app"
 import { getAuth as _getAuth, GoogleAuthProvider, type Auth } from "firebase/auth"
-import { getFirestore as _getFirestore, type Firestore } from "firebase/firestore"
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, type Firestore } from "firebase/firestore"
 import { getAnalytics as _getAnalytics, isSupported, type Analytics } from "firebase/analytics"
 
 const firebaseConfig = {
@@ -34,7 +34,11 @@ export function getAuth() {
 
 export function getDb() {
   if (!db) {
-    db = _getFirestore(getApp())
+    db = initializeFirestore(getApp(), {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    })
   }
   return db
 }
