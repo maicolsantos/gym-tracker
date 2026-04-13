@@ -1,10 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight, Dumbbell } from "lucide-react"
+import { ChevronLeft, ChevronRight, Dumbbell, LogOut } from "lucide-react"
+import { doc, getDoc, updateDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { getDb } from "@/lib/firebase"
+import { useAuth } from "@/contexts/auth-context"
 
 const MONTHS = [
   "Janeiro",
@@ -23,8 +26,6 @@ const MONTHS = [
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
 
-const STORAGE_KEY = "gym-workout-dates"
-
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate()
 }
@@ -38,29 +39,28 @@ function formatDateKey(year: number, month: number, day: number) {
 }
 
 export function Calendar() {
+  const { user, signOut } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set())
 
   const currentYear = currentDate.getFullYear()
   const currentMonth = currentDate.getMonth()
 
-  // Load from localStorage on mount
+  // Load from Firestore on mount
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      try {
-        const dates = JSON.parse(stored) as string[]
-        setSelectedDates(new Set(dates))
-      } catch {
-        // Invalid data, ignore
-      }
-    }
-  }, [])
-
-  // Save to localStorage when selectedDates change
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(selectedDates)))
-  }, [selectedDates])
+    if (!user) return
+    const docRef = doc(getDb(), "workouts", user.uid)
+    getDoc(docRef)
+      .then((snap) => {
+        if (snap.exists()) {
+          const dates = snap.data().dates as string[]
+          setSelectedDates(new Set(dates))
+        }
+      })
+      .catch((err) => {
+        console.error("Erro ao carregar treinos:", err)
+      })
+  }, [user])
 
   const daysInMonth = getDaysInMonth(currentYear, currentMonth)
   const firstDayOfMonth = getFirstDayOfMonth(currentYear, currentMonth)
@@ -73,17 +73,44 @@ export function Calendar() {
     setCurrentDate(new Date(currentYear, currentMonth + 1, 1))
   }
 
-  const toggleDate = (day: number) => {
+  const toggleDate = async (day: number) => {
+    if (!user) return
     const dateKey = formatDateKey(currentYear, currentMonth, day)
-    const newSelectedDates = new Set(selectedDates)
+    const removing = selectedDates.has(dateKey)
 
-    if (newSelectedDates.has(dateKey)) {
+    // Optimistic update
+    const newSelectedDates = new Set(selectedDates)
+    if (removing) {
       newSelectedDates.delete(dateKey)
     } else {
       newSelectedDates.add(dateKey)
     }
-
     setSelectedDates(newSelectedDates)
+
+    // Atomic Firestore update
+    const docRef = doc(getDb(), "workouts", user.uid)
+    try {
+      await updateDoc(docRef, {
+        dates: removing ? arrayRemove(dateKey) : arrayUnion(dateKey),
+      })
+    } catch {
+      // Document may not exist yet
+      try {
+        await setDoc(docRef, { dates: removing ? [] : [dateKey] })
+      } catch (err) {
+        console.error("Erro ao salvar treino:", err)
+        // Rollback
+        setSelectedDates(selectedDates)
+      }
+    }
+  }
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+    } catch (err) {
+      console.error("Erro ao sair:", err)
+    }
   }
 
   const isSelected = (day: number) => {
@@ -148,11 +175,28 @@ export function Calendar() {
       {/* Calendar Card */}
       <Card className="lg:col-span-2">
         <CardHeader className="pb-4">
-          {/* Tracker de Ginásio */}
-          <CardTitle className="flex items-center gap-2 mb-4">
-            <Dumbbell className="h-5 w-5" />
-            Tracker de Ginásio
-          </CardTitle>
+          <div className="flex items-center justify-between mb-4">
+            <CardTitle className="flex items-center gap-2">
+              <Dumbbell className="h-5 w-5" />
+              Tracker de Ginásio
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              {user?.photoURL && (
+                <img
+                  src={user.photoURL}
+                  alt=""
+                  className="h-7 w-7 rounded-full"
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              <span className="text-sm text-muted-foreground hidden sm:inline">
+                {user?.displayName?.split(" ")[0]}
+              </span>
+              <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sair">
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
           <div className="flex items-center justify-center gap-2">
             <Button variant="outline" size="icon" onClick={handlePrevMonth}>
               <ChevronLeft className="h-4 w-4" />
