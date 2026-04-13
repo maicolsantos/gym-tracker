@@ -133,9 +133,9 @@ function YearPodium({ entries }: { entries: RankingEntry[] }) {
               <div className={cn(
                 "w-full rounded-t-lg mt-2 flex items-center justify-center",
                 podiumHeight,
-                entry ? blockColor : "bg-muted/20",
+                entry ? blockColor : "bg-muted/50 border-2 border-dashed border-muted-foreground/30",
               )}>
-                <span className="text-xs font-bold text-white drop-shadow">{getOrdinal(position)}</span>
+                <span className={cn("text-xs font-bold drop-shadow", entry ? "text-white" : "text-muted-foreground")}>{getOrdinal(position)}</span>
               </div>
             </div>
           )
