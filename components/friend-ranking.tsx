@@ -1,10 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Trophy } from "lucide-react"
+import { Trophy, CalendarDays } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { fetchFriendWorkouts, fetchFriendProfiles } from "@/lib/friends"
 import type { UserProfile } from "@/lib/friends"
 import { MONTHS } from "@/lib/date-utils"
@@ -179,7 +186,10 @@ export function FriendRanking({
 }: FriendRankingProps) {
   const [monthEntries, setMonthEntries] = useState<RankingEntry[]>([])
   const [yearEntries, setYearEntries] = useState<RankingEntry[]>([])
+  const [allProfiles, setAllProfiles] = useState<Map<string, UserProfile>>(new Map())
+  const [allWorkoutDates, setAllWorkoutDates] = useState<Map<string, string[]>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [showHistory, setShowHistory] = useState(false)
 
   useEffect(() => {
     const now = new Date()
@@ -188,13 +198,16 @@ export function FriendRanking({
     const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`
     const yearPrefix = `${year}-`
 
-    const currentUserMonthCount = [...currentUserWorkouts].filter((d) => d.startsWith(monthPrefix)).length
-    const currentUserYearCount = [...currentUserWorkouts].filter((d) => d.startsWith(yearPrefix)).length
+    const currentDates = [...currentUserWorkouts]
+    const currentUserMonthCount = currentDates.filter((d) => d.startsWith(monthPrefix)).length
+    const currentUserYearCount = currentDates.filter((d) => d.startsWith(yearPrefix)).length
 
     if (friendUids.length === 0) {
       if (currentUserProfile) {
         setMonthEntries([{ profile: currentUserProfile, count: currentUserMonthCount, isCurrentUser: true }])
         setYearEntries([{ profile: currentUserProfile, count: currentUserYearCount, isCurrentUser: true }])
+        setAllProfiles(new Map([[currentUid, currentUserProfile]]))
+        setAllWorkoutDates(new Map([[currentUid, currentDates]]))
       }
       setLoading(false)
       return
@@ -202,6 +215,15 @@ export function FriendRanking({
 
     Promise.all([fetchFriendProfiles(friendUids), fetchFriendWorkouts(friendUids)])
       .then(([profiles, workouts]) => {
+        const enrichedProfiles = new Map(profiles)
+        const enrichedWorkouts = new Map(workouts)
+        if (currentUserProfile) {
+          enrichedProfiles.set(currentUid, currentUserProfile)
+          enrichedWorkouts.set(currentUid, currentDates)
+        }
+        setAllProfiles(enrichedProfiles)
+        setAllWorkoutDates(enrichedWorkouts)
+
         const friendMonthEntries: RankingEntry[] = friendUids.flatMap((uid) => {
           const profile = profiles.get(uid)
           if (!profile) return []
@@ -231,8 +253,23 @@ export function FriendRanking({
   }, [currentUid, friendUids, currentUserProfile, currentUserWorkouts])
 
   const now = new Date()
-  const monthLabel = `${MONTHS[now.getMonth()]} ${now.getFullYear()}`
-  const yearLabel = `${now.getFullYear()}`
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() // 0-based
+
+  function getMonthTop3(month: number): RankingEntry[] {
+    const prefix = `${currentYear}-${String(month + 1).padStart(2, "0")}-`
+    const entries: RankingEntry[] = []
+    allWorkoutDates.forEach((dates, uid) => {
+      const profile = allProfiles.get(uid)
+      if (!profile) return
+      const count = dates.filter((d) => d.startsWith(prefix)).length
+      entries.push({ profile, count, isCurrentUser: uid === currentUid })
+    })
+    return entries.sort((a, b) => b.count - a.count).slice(0, 3)
+  }
+
+  const monthLabel = `${MONTHS[currentMonth]} ${currentYear}`
+  const yearLabel = `${currentYear}`
 
   if (loading) {
     return (
@@ -253,20 +290,95 @@ export function FriendRanking({
   }
 
   return (
-    <div className="space-y-6 py-2">
-      <div className="space-y-3">
-        <p className="text-xs text-muted-foreground text-center">{monthLabel}</p>
-        <RankingList entries={monthEntries} emptyMessage="Nenhum treino este mês" />
+    <>
+      <div className="space-y-6 py-2">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">{monthLabel}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs gap-1 text-muted-foreground"
+              onClick={() => setShowHistory(true)}
+            >
+              <CalendarDays className="h-3 w-3" />
+              Histórico
+            </Button>
+          </div>
+          <RankingList entries={monthEntries} emptyMessage="Nenhum treino este mês" />
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 justify-center border-t pt-4">
+            <Trophy className="h-3.5 w-3.5 text-amber-500" />
+            <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">{yearLabel}</p>
+            <Trophy className="h-3.5 w-3.5 text-amber-500" />
+          </div>
+          <YearPodium entries={yearEntries} />
+        </div>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 justify-center border-t pt-4">
-          <Trophy className="h-3.5 w-3.5 text-amber-500" />
-          <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">{yearLabel}</p>
-          <Trophy className="h-3.5 w-3.5 text-amber-500" />
-        </div>
-        <YearPodium entries={yearEntries} />
-      </div>
-    </div>
+      <Dialog open={showHistory} onOpenChange={setShowHistory}>
+        <DialogContent className="max-w-sm max-h-[80vh] overflow-y-auto overscroll-contain">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" />
+              Histórico {currentYear}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            {Array.from({ length: currentMonth + 1 }, (_, i) => currentMonth - i).map((m) => {
+              const top3 = getMonthTop3(m)
+              const hasWorkouts = top3.some((e) => e.count > 0)
+              const maxCount = top3[0]?.count ?? 0
+              return (
+                <div key={m} className="rounded-xl border bg-muted/30 overflow-hidden">
+                  <div className="px-3 py-2 border-b bg-muted/50">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                      {MONTHS[m]}
+                    </p>
+                  </div>
+                  <div className="px-3 py-2">
+                    {!hasWorkouts ? (
+                      <p className="text-xs text-muted-foreground italic py-1">Sem treinos</p>
+                    ) : (
+                      <ol className="space-y-1.5">
+                        {top3.filter((e) => e.count > 0).map((entry, idx) => (
+                          <li
+                            key={entry.profile.uid}
+                            className={cn(
+                              "flex items-center gap-3 p-1.5 rounded-lg",
+                              entry.isCurrentUser && "bg-primary/10 border border-primary/20",
+                            )}
+                          >
+                            <span className="text-xs font-bold w-5 text-center text-muted-foreground">
+                              {getOrdinal(idx + 1)}
+                            </span>
+                            <Avatar className="h-7 w-7">
+                              <AvatarImage src={entry.profile.photoURL ?? undefined} alt={entry.profile.displayName} />
+                              <AvatarFallback className="text-xs">{getInitials(entry.profile.displayName)}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">
+                                {entry.isCurrentUser ? "Você" : entry.profile.displayName}
+                              </p>
+                              <Progress
+                                value={maxCount > 0 ? (entry.count / maxCount) * 100 : 0}
+                                className="h-1 mt-1"
+                              />
+                            </div>
+                            <span className="text-xs font-bold tabular-nums w-6 text-right">{entry.count}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
