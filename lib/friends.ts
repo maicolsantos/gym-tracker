@@ -23,9 +23,11 @@ export interface UserProfile {
 const FRIEND_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 export function generateFriendCode(): string {
+  const randomBytes = new Uint32Array(6)
+  crypto.getRandomValues(randomBytes)
   let code = ""
   for (let i = 0; i < 6; i++) {
-    code += FRIEND_CODE_CHARS[Math.floor(Math.random() * FRIEND_CODE_CHARS.length)]
+    code += FRIEND_CODE_CHARS[randomBytes[i] % FRIEND_CODE_CHARS.length]
   }
   return code
 }

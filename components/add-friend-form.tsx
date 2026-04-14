@@ -30,6 +30,11 @@ export function AddFriendForm({ currentUid, currentFriends, onFriendAdded }: Add
       return
     }
 
+    if (!/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/.test(normalized)) {
+      setError("Código inválido. Use apenas letras e números permitidos.")
+      return
+    }
+
     setLoading(true)
     try {
       const friendUid = await lookupFriendCode(normalized)
