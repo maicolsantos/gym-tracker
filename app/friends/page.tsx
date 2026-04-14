@@ -87,7 +87,7 @@ export default function FriendsPage() {
                   Amigos ({friendUids.length})
                 </p>
                 <FriendListLoader
-                  currentUid={user!.uid}
+                  currentUid={profile.uid}
                   friendUids={friendUids}
                   onFriendRemoved={(uid) =>
                     setFriendUids((prev) => prev.filter((id) => id !== uid))
@@ -98,7 +98,7 @@ export default function FriendsPage() {
 
             <TabsContent value="adicionar" className="mt-4">
               <AddFriendForm
-                currentUid={user!.uid}
+                currentUid={profile.uid}
                 currentFriends={friendUids}
                 onFriendAdded={(newProfile) => {
                   setFriendUids((prev) =>
@@ -110,7 +110,7 @@ export default function FriendsPage() {
 
             <TabsContent value="ranking" className="mt-4">
               <FriendRanking
-                currentUid={user!.uid}
+                currentUid={profile.uid}
                 friendUids={friendUids}
                 currentUserProfile={profile}
                 currentUserWorkouts={workouts}

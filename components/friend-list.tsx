@@ -16,7 +16,9 @@ interface FriendListProps {
 }
 
 function getInitials(name: string): string {
-  return name
+  const trimmed = name.trim()
+  if (!trimmed) return "?"
+  return trimmed
     .split(" ")
     .slice(0, 2)
     .map((n) => n[0])
@@ -90,18 +92,24 @@ export function FriendListLoader({ currentUid, friendUids, onFriendRemoved }: Fr
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let mounted = true
     setLoading(true)
     if (friendUids.length === 0) {
       setFriends([])
       setLoading(false)
-      return
+      return () => { mounted = false }
     }
     fetchFriendProfiles(friendUids)
       .then((profiles) => {
+        if (!mounted) return
         setFriends(friendUids.flatMap((uid) => (profiles.get(uid) ? [profiles.get(uid)!] : [])))
       })
-      .catch((err) => console.error("Erro ao buscar perfis:", err))
-      .finally(() => setLoading(false))
+      .catch((err) => {
+        if (!mounted) return
+        console.error("Erro ao buscar perfis:", err)
+      })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
   }, [friendUids])
 
   if (loading) {

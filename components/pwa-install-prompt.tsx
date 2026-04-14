@@ -13,6 +13,7 @@ export function PWAInstallPrompt() {
   const [show, setShow] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
   const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const isStandalone =
@@ -26,18 +27,23 @@ export function PWAInstallPrompt() {
     setIsIOS(ios)
 
     if (ios) {
-      const timer = setTimeout(() => setShow(true), 2000)
-      return () => clearTimeout(timer)
+      timerRef.current = setTimeout(() => setShow(true), 2000)
+      return () => {
+        if (timerRef.current) clearTimeout(timerRef.current)
+      }
     }
 
     const handler = (e: Event) => {
       e.preventDefault()
       deferredPrompt.current = e as BeforeInstallPromptEvent
-      setTimeout(() => setShow(true), 2000)
+      timerRef.current = setTimeout(() => setShow(true), 2000)
     }
 
     window.addEventListener("beforeinstallprompt", handler)
-    return () => window.removeEventListener("beforeinstallprompt", handler)
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler)
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
   }, [])
 
   const handleInstall = async () => {

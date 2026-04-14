@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Trophy, CalendarDays } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
@@ -24,7 +24,9 @@ interface RankingEntry {
 }
 
 function getInitials(name: string): string {
-  return name
+  const trimmed = name.trim()
+  if (!trimmed) return "?"
+  return trimmed
     .split(" ")
     .slice(0, 2)
     .map((n) => n[0])
@@ -191,6 +193,12 @@ export function FriendRanking({
   const [loading, setLoading] = useState(true)
   const [showHistory, setShowHistory] = useState(false)
 
+  // Serialize Set to stable string so the effect only re-runs when dates actually change
+  const workoutsKey = useMemo(
+    () => [...currentUserWorkouts].sort().join(","),
+    [currentUserWorkouts],
+  )
+
   useEffect(() => {
     const now = new Date()
     const year = now.getFullYear()
@@ -250,7 +258,7 @@ export function FriendRanking({
       })
       .catch((err) => console.error("Erro ao buscar ranking:", err))
       .finally(() => setLoading(false))
-  }, [currentUid, friendUids, currentUserProfile, currentUserWorkouts])
+  }, [currentUid, friendUids, currentUserProfile, workoutsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const now = new Date()
   const currentYear = now.getFullYear()

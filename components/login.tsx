@@ -6,6 +6,16 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/contexts/auth-context"
 
+const FIREBASE_AUTH_ERRORS: Record<string, string> = {
+  "auth/popup-blocked": "O popup foi bloqueado. Permite popups para este site.",
+  "auth/popup-closed-by-user": "O popup foi fechado antes de completar o login.",
+  "auth/cancelled-popup-request": "Início de sessão cancelado.",
+  "auth/network-request-failed": "Erro de rede. Verifica a tua ligação à internet.",
+  "auth/too-many-requests": "Demasiadas tentativas. Aguarda uns momentos e tenta novamente.",
+  "auth/user-disabled": "Esta conta foi desativada.",
+  "auth/unauthorized-domain": "Este domínio não está autorizado para login.",
+}
+
 export function Login() {
   const { signInWithGoogle } = useAuth()
   const [error, setError] = useState<string | null>(null)
@@ -17,7 +27,8 @@ export function Login() {
     try {
       await signInWithGoogle()
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Erro ao fazer login"
+      const code = (err as { code?: string }).code ?? ""
+      const message = FIREBASE_AUTH_ERRORS[code] ?? "Erro ao fazer login. Tenta novamente."
       setError(message)
     } finally {
       setLoading(false)

@@ -4,21 +4,61 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if request.auth != null;
-      allow create: if request.auth.uid == uid;
-      allow update: if request.auth != null
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends']);
+
+      // Only create your own document, with validated fields only
+      allow create: if request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['displayName','photoURL','friendCode','friends','createdAt'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() <= 100
+        && request.resource.data.friends is list
+        && request.resource.data.friends.size() == 0;
+
+      // Owner can update anything on their own document
+      // Others can only add/remove themselves from friends[] (no duplicates)
+      allow update: if request.auth.uid == uid
+        || (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends'])
+          && (
+            // Adding own UID — must not already be in the list (prevents duplicates)
+            (request.resource.data.friends.size() == resource.data.friends.size() + 1
+             && request.resource.data.friends.hasAll(resource.data.friends)
+             && request.resource.data.friends.hasAll([request.auth.uid])
+             && !resource.data.friends.hasAll([request.auth.uid]))
+            // Removing own UID — must currently be in the list
+            || (request.resource.data.friends.size() == resource.data.friends.size() - 1
+                && resource.data.friends.hasAll(request.resource.data.friends)
+                && resource.data.friends.hasAll([request.auth.uid]))
+          )
+        );
+
+      allow delete: if false;
     }
 
     match /friendCodes/{code} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null;
+
+      // Creator must own the code — prevents namespace squatting
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid;
+
+      // Codes are immutable once created
+      allow update: if false;
+      allow delete: if false;
     }
 
     match /workouts/{uid} {
+      // Own doc always readable; friends can read if listed in owner's friends[]
       allow read: if request.auth != null
         && (request.auth.uid == uid
-            || request.auth.uid in get(/databases/$(database)/documents/users/$(uid)).data.friends);
-      allow write: if request.auth.uid == uid;
+            || (
+              exists(/databases/$(database)/documents/users/$(uid))
+              && request.auth.uid in get(/databases/$(database)/documents/users/$(uid)).data.friends
+            ));
+
+      // Only create/update own workouts — delete is not permitted
+      allow create, update: if request.auth.uid == uid;
+      allow delete: if false;
     }
+
   }
 }

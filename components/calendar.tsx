@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { ChevronLeft, ChevronRight, Dumbbell, LogOut, Users } from "lucide-react"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { doc, getDoc, updateDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -52,14 +53,16 @@ export function Calendar() {
     const dateKey = formatDateKey(currentYear, currentMonth, day)
     const removing = selectedDates.has(dateKey)
 
+    // Snapshot before optimistic update — used for rollback
+    const snapshot = new Set(selectedDates)
+
     // Optimistic update
-    const newSelectedDates = new Set(selectedDates)
-    if (removing) {
-      newSelectedDates.delete(dateKey)
-    } else {
-      newSelectedDates.add(dateKey)
-    }
-    setSelectedDates(newSelectedDates)
+    setSelectedDates((prev) => {
+      const next = new Set(prev)
+      if (removing) next.delete(dateKey)
+      else next.add(dateKey)
+      return next
+    })
 
     // Atomic Firestore update
     const docRef = doc(getDb(), "workouts", user.uid)
@@ -73,8 +76,8 @@ export function Calendar() {
         await setDoc(docRef, { dates: removing ? [] : [dateKey] })
       } catch (err) {
         console.error("Erro ao salvar treino:", err)
-        // Rollback
-        setSelectedDates(selectedDates)
+        // Rollback to pre-optimistic snapshot
+        setSelectedDates(snapshot)
       }
     }
   }
@@ -156,6 +159,7 @@ export function Calendar() {
               Tracker Ginásio
             </CardTitle>
             <div className="flex items-center gap-2">
+              <ThemeToggle />
               <Button variant="ghost" size="icon" onClick={() => router.push("/friends")} title="Amigos">
                 <Users className="h-4 w-4" />
               </Button>
