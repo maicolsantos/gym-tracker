@@ -24,6 +24,7 @@ export default function FriendsPage() {
   const [workouts, setWorkouts] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("ranking")
 
   useEffect(() => {
     if (authLoading) return
@@ -73,12 +74,34 @@ export default function FriendsPage() {
         ) : error ? (
           <p className="text-sm text-destructive text-center">{error}</p>
         ) : profile ? (
-          <Tabs defaultValue="codigo">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="w-full">
-              <TabsTrigger value="codigo" className="flex-1">Meu Código</TabsTrigger>
-              <TabsTrigger value="adicionar" className="flex-1">Adicionar</TabsTrigger>
               <TabsTrigger value="ranking" className="flex-1">Ranking</TabsTrigger>
+              <TabsTrigger value="adicionar" className="flex-1">Adicionar</TabsTrigger>
+              <TabsTrigger value="codigo" className="flex-1">Meu Código</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="ranking" className="mt-4">
+              <FriendRanking
+                currentUid={profile.uid}
+                friendUids={friendUids}
+                currentUserProfile={profile}
+                currentUserWorkouts={workouts}
+              />
+            </TabsContent>
+
+            <TabsContent value="adicionar" className="mt-4">
+              <AddFriendForm
+                currentUid={profile.uid}
+                currentFriends={friendUids}
+                onFriendAdded={(newProfile) => {
+                  setFriendUids((prev) =>
+                    prev.includes(newProfile.uid) ? prev : [...prev, newProfile.uid],
+                  )
+                  setActiveTab("ranking")
+                }}
+              />
+            </TabsContent>
 
             <TabsContent value="codigo" className="space-y-4 mt-4">
               <FriendCodeDisplay code={profile.friendCode} />
@@ -94,27 +117,6 @@ export default function FriendsPage() {
                   }
                 />
               </div>
-            </TabsContent>
-
-            <TabsContent value="adicionar" className="mt-4">
-              <AddFriendForm
-                currentUid={profile.uid}
-                currentFriends={friendUids}
-                onFriendAdded={(newProfile) => {
-                  setFriendUids((prev) =>
-                    prev.includes(newProfile.uid) ? prev : [...prev, newProfile.uid],
-                  )
-                }}
-              />
-            </TabsContent>
-
-            <TabsContent value="ranking" className="mt-4">
-              <FriendRanking
-                currentUid={profile.uid}
-                friendUids={friendUids}
-                currentUserProfile={profile}
-                currentUserWorkouts={workouts}
-              />
             </TabsContent>
           </Tabs>
         ) : null}
