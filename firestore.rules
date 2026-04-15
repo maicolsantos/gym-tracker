@@ -82,13 +82,15 @@ service cloud.firestore {
     }
 
     match /humiliations/{humiliationId} {
-      // Only sender and recipient can read their humiliation
+      // Only sender and recipient can read their humiliation.
+      // resource == null when the document doesn't exist (transaction existence check).
       allow read: if request.auth != null
-        && (request.auth.uid == resource.data.senderUid
+        && (resource == null
+            || request.auth.uid == resource.data.senderUid
             || request.auth.uid == resource.data.recipientUid);
 
       // Only the sender can create — document ID must be {senderUid}_{recipientUid}_{yearMonth}
-      // Eligibility is enforced server-side by requiring the pair document to exist
+      // Eligibility is enforced client-side (pair docs may not exist for friends added after month close)
       allow create: if request.auth != null
         && request.auth.uid == request.resource.data.senderUid
         && request.resource.data.keys().hasOnly([
@@ -97,8 +99,7 @@ service cloud.firestore {
            ])
         && request.resource.data.senderUid is string
         && request.resource.data.recipientUid is string
-        && request.resource.data.senderUid != request.resource.data.recipientUid
-        && exists(/databases/$(database)/documents/monthlyRankings/$(request.resource.data.yearMonth)/pairs/$(request.resource.data.senderUid + '_' + request.resource.data.recipientUid));
+        && request.resource.data.senderUid != request.resource.data.recipientUid;
 
       // Humiliations are immutable and permanent
       allow update, delete: if false;

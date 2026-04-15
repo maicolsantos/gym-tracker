@@ -35,12 +35,15 @@ export function TargetSelector({
   onSelect,
   yearMonth,
 }: TargetSelectorProps) {
-  const [year, month] = yearMonth.split("-")
+  const isValidYearMonth = /^\d{4}-\d{2}$/.test(yearMonth)
+  const [year, month] = isValidYearMonth ? yearMonth.split("-") : ["", ""]
   const monthNames = [
     "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
     "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
   ]
-  const label = `${monthNames[Number(month) - 1]} ${year}`
+  const label = isValidYearMonth
+    ? `${monthNames[Number(month) - 1]} ${year}`
+    : "o mês anterior"
 
   if (loading) {
     return (

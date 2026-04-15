@@ -18,6 +18,7 @@ import { SHOP_CATALOG, CATEGORY_LABELS } from "@/lib/shop-catalog"
 import type { ShopCategory, ShopItem } from "@/lib/shop-catalog"
 import type { EligibleTarget } from "@/hooks/use-eligible-targets"
 import { cn } from "@/lib/utils"
+import { getPreviousYearMonth } from "@/lib/monthly-ranking"
 
 type Step = "browse" | "target"
 
@@ -48,6 +49,7 @@ export function ShopDialog({
   const { targets, loading: targetsLoading } = useEligibleTargets(
     open ? currentUid : null,
   )
+  const yearMonth = getPreviousYearMonth()
 
   const visibleItems = SHOP_CATALOG.filter((item) => item.category === activeCategory)
 
@@ -188,7 +190,7 @@ export function ShopDialog({
                   loading={targetsLoading}
                   selected={selectedTarget}
                   onSelect={setSelectedTarget}
-                  yearMonth={targets[0]?.yearMonth ?? ""}
+                  yearMonth={targets[0]?.yearMonth ?? yearMonth}
                 />
               </div>
 

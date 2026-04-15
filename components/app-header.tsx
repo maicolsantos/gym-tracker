@@ -7,6 +7,7 @@ import { useTheme, type Theme } from "@/contexts/theme-context"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { XpBadge } from "@/components/xp-badge"
+import { useHumiliationsInbox } from "@/hooks/use-humiliations-inbox"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +25,13 @@ const themeOptions: { value: Theme; label: string; icon: React.ReactNode }[] = [
 export function AppHeader() {
   const { user, signOut } = useAuth()
   const { theme, setTheme } = useTheme()
+  const { humiliation, activeHumiliation } = useHumiliationsInbox(user?.uid ?? null)
+  const avatarEmoji =
+    activeHumiliation &&
+    (activeHumiliation.itemSnapshot.category === "avatar" ||
+      activeHumiliation.itemSnapshot.category === "combo")
+      ? (activeHumiliation.itemSnapshot.emoji ?? null)
+      : null
 
   if (!user) return null
 
@@ -41,12 +49,23 @@ export function AppHeader() {
         {/* Esquerda: avatar + nome — link para home */}
         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <Avatar className="h-8 w-8 shrink-0">
-            <AvatarImage src={user.photoURL ?? ""} referrerPolicy="no-referrer" />
-            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+            {!avatarEmoji && (
+              <AvatarImage src={user.photoURL ?? ""} referrerPolicy="no-referrer" />
+            )}
+            <AvatarFallback className={avatarEmoji ? "text-base" : "text-xs"}>
+              {avatarEmoji ?? initials}
+            </AvatarFallback>
           </Avatar>
           <div className="flex flex-col min-w-0">
-            <span className="text-sm font-medium truncate max-w-[140px] sm:max-w-none leading-tight">
-              {firstName}
+            <span className="flex items-center gap-1.5 leading-tight">
+              <span className="text-sm font-medium truncate max-w-[100px] sm:max-w-none">
+                {firstName}
+              </span>
+              {activeHumiliation?.itemSnapshot.nicknameText && (
+                <span className="inline-flex items-center rounded-full border border-yellow-500/50 bg-yellow-500/15 px-1.5 py-0 text-[10px] font-semibold text-yellow-600 dark:text-yellow-400 whitespace-nowrap">
+                  {activeHumiliation.itemSnapshot.nicknameText}
+                </span>
+              )}
             </span>
             <XpBadge />
           </div>

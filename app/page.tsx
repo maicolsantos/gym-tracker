@@ -3,12 +3,15 @@
 import { useEffect } from "react"
 import { Calendar } from "@/components/calendar"
 import { Login } from "@/components/login"
+import { HumiliationBanner } from "@/components/humiliations/humiliation-banner"
 import { useAuth } from "@/contexts/auth-context"
+import { useHumiliationsInbox } from "@/hooks/use-humiliations-inbox"
 import { closeMonthIfNeeded } from "@/lib/monthly-ranking"
 import { migrateCurrentMonthXp } from "@/lib/xp"
 
 export default function Page() {
   const { user, loading } = useAuth()
+  const { humiliation, dismiss } = useHumiliationsInbox(user?.uid ?? null)
 
   // On app start: close previous month + migrate current month's existing workouts (both idempotent)
   useEffect(() => {
@@ -35,7 +38,10 @@ export default function Page() {
 
   return (
     <main className="min-h-dvh bg-background p-4 md:p-8">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-5xl mx-auto space-y-4">
+        {humiliation && (
+          <HumiliationBanner humiliation={humiliation} onDismiss={dismiss} />
+        )}
         <Calendar />
       </div>
     </main>

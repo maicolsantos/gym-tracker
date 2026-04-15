@@ -42,28 +42,16 @@ export async function purchaseHumiliation(params: PurchaseParams): Promise<strin
   const humiliationId = `${senderUid}_${recipientUid}_${yearMonth}`
   const humiliationRef = doc(db, "humiliations", humiliationId)
   const senderRef = doc(db, "users", senderUid)
-  const pairRef = doc(
-    db,
-    "monthlyRankings",
-    yearMonth,
-    "pairs",
-    `${senderUid}_${recipientUid}`,
-  )
   const xpEventRef = doc(db, "users", senderUid, "xpEvents", `purchase:${humiliationId}`)
 
   await runTransaction(db, async (tx) => {
-    const [humiliationSnap, senderSnap, pairSnap] = await Promise.all([
+    const [humiliationSnap, senderSnap] = await Promise.all([
       tx.get(humiliationRef),
       tx.get(senderRef),
-      tx.get(pairRef),
     ])
 
     if (humiliationSnap.exists()) {
       throw new Error("Já enviaste uma humilhação para este amigo este mês.")
-    }
-
-    if (!pairSnap.exists()) {
-      throw new Error("Não és elegível para humilhar este amigo este mês.")
     }
 
     const xpAvailable: number = senderSnap.data()?.xpAvailable ?? 0
