@@ -13,14 +13,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { fetchFriendWorkouts, fetchFriendProfiles } from "@/lib/friends"
-import type { UserProfile } from "@/lib/friends"
+import type { UserProfile, FriendProfile } from "@/lib/friends"
 import { MONTHS } from "@/lib/date-utils"
 import { cn } from "@/lib/utils"
 import { ShopDialog } from "@/components/shop/shop-dialog"
 import { useXp } from "@/hooks/use-xp"
 
 interface RankingEntry {
-  profile: UserProfile
+  profile: FriendProfile
   count: number
   isCurrentUser: boolean
 }
@@ -190,7 +190,7 @@ export function FriendRanking({
 }: FriendRankingProps) {
   const [monthEntries, setMonthEntries] = useState<RankingEntry[]>([])
   const [yearEntries, setYearEntries] = useState<RankingEntry[]>([])
-  const [allProfiles, setAllProfiles] = useState<Map<string, UserProfile>>(new Map())
+  const [allProfiles, setAllProfiles] = useState<Map<string, FriendProfile>>(new Map())
   const [allWorkoutDates, setAllWorkoutDates] = useState<Map<string, string[]>>(new Map())
   const [loading, setLoading] = useState(true)
   const [showHistory, setShowHistory] = useState(false)

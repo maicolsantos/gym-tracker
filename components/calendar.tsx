@@ -90,7 +90,7 @@ export function Calendar() {
     } catch {
       // Document may not exist yet
       try {
-        await setDoc(docRef, { dates: removing ? [] : [dateKey] })
+        await setDoc(docRef, { dates: removing ? [] : [dateKey] }, { merge: true })
       } catch (err) {
         console.error("Erro ao salvar treino:", err)
         // Rollback to pre-optimistic snapshot

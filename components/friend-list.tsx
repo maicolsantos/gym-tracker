@@ -7,11 +7,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { removeFriend, fetchFriendProfiles } from "@/lib/friends"
-import type { UserProfile } from "@/lib/friends"
+import type { FriendProfile } from "@/lib/friends"
 
 interface FriendListProps {
   currentUid: string
-  friends: UserProfile[]
+  friends: FriendProfile[]
   onFriendRemoved: (uid: string) => void
 }
 
@@ -88,7 +88,7 @@ interface FriendListLoaderProps {
 }
 
 export function FriendListLoader({ currentUid, friendUids, onFriendRemoved }: FriendListLoaderProps) {
-  const [friends, setFriends] = useState<UserProfile[]>([])
+  const [friends, setFriends] = useState<FriendProfile[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

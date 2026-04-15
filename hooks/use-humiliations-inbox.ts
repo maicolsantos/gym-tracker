@@ -22,20 +22,41 @@ export interface ActiveHumiliation {
 }
 
 const LS_KEY = "humiliation-dismissed"
+const PRUNE_AFTER_MS = 90 * 24 * 60 * 60 * 1000 // 90 days
+
+interface DismissedEntry {
+  id: string
+  dismissedAt: number
+}
 
 function getDismissedIds(): Set<string> {
   if (typeof window === "undefined") return new Set()
   try {
     const raw = localStorage.getItem(LS_KEY)
-    return new Set(raw ? (JSON.parse(raw) as string[]) : [])
+    if (!raw) return new Set()
+    const entries: DismissedEntry[] = JSON.parse(raw)
+    const now = Date.now()
+    const fresh = entries.filter((e) => now - e.dismissedAt < PRUNE_AFTER_MS)
+    if (fresh.length !== entries.length) {
+      localStorage.setItem(LS_KEY, JSON.stringify(fresh))
+    }
+    return new Set(fresh.map((e) => e.id))
   } catch {
     return new Set()
   }
 }
 
-function saveDismissedIds(ids: Set<string>): void {
+function saveDismissedId(id: string): void {
   if (typeof window === "undefined") return
-  localStorage.setItem(LS_KEY, JSON.stringify([...ids]))
+  try {
+    const raw = localStorage.getItem(LS_KEY)
+    const entries: DismissedEntry[] = raw ? JSON.parse(raw) : []
+    const filtered = entries.filter((e) => e.id !== id)
+    filtered.push({ id, dismissedAt: Date.now() })
+    localStorage.setItem(LS_KEY, JSON.stringify(filtered))
+  } catch {
+    // ignore write errors
+  }
 }
 
 /**
@@ -52,10 +73,15 @@ export function useHumiliationsInbox(currentUid: string | null) {
   const [current, setCurrent] = useState<ActiveHumiliation | null>(null)
   // Active humiliation for badge/avatar — persists even after banner is dismissed
   const [active, setActive] = useState<ActiveHumiliation | null>(null)
-  const [loading, setLoading] = useState(false)
+  // Start as true so the avatar never flashes the real photo before we know
+  // whether a humiliation emoji should replace it
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!currentUid) return
+    if (!currentUid) {
+      setLoading(false)
+      return
+    }
 
     setLoading(true)
     const db = getDb()
@@ -89,9 +115,7 @@ export function useHumiliationsInbox(currentUid: string | null) {
 
   function dismiss() {
     if (!current) return
-    const ids = getDismissedIds()
-    ids.add(current.id)
-    saveDismissedIds(ids)
+    saveDismissedId(current.id)
     setCurrent(null)
   }
 

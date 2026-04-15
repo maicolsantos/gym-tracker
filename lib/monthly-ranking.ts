@@ -1,4 +1,4 @@
-import { doc, getDoc, runTransaction, increment, Timestamp } from "firebase/firestore"
+import { doc, runTransaction, increment, Timestamp } from "firebase/firestore"
 import { getDb } from "@/lib/firebase"
 import { XP_RANK_BONUS, XP_RANK_FALLBACK } from "@/lib/xp-config"
 
@@ -33,6 +33,10 @@ function workoutCountForMonth(dates: string[], yearMonth: string): number {
  * - Awards XP rank bonus to the calling user only (each user claims their own)
  * - Writes eligible humiliation pairs where the calling user is the sender
  *
+ * All reads happen inside a single Firestore transaction, eliminating TOCTOU:
+ * the circleRef is the authoritative guard — if it exists, the transaction exits
+ * immediately without doing any heavy fetches.
+ *
  * Structure written:
  *   monthlyRankings/{yearMonth}/circles/{uid}   — snapshot of this user's circle
  *   monthlyRankings/{yearMonth}/pairs/{uid}_{B} — one doc per friend that uid outranked
@@ -44,81 +48,74 @@ export async function closeMonthIfNeeded(
   const db = getDb()
   const yearMonth = getPreviousYearMonth()
   const circleRef = doc(db, "monthlyRankings", yearMonth, "circles", uid)
-
-  // Fast pre-check before any heavy fetches
-  const circleSnap = await getDoc(circleRef)
-  if (circleSnap.exists()) return
-
-  // Fetch user profile for friends list
   const userRef = doc(db, "users", uid)
-  const userSnap = await getDoc(userRef)
-  if (!userSnap.exists()) return
-
-  const friendUids: string[] = userSnap.data().friends ?? []
-  const allUids = [uid, ...friendUids]
-
-  // Fetch all workout docs and friend profiles in parallel
-  const [workoutSnaps, friendProfileSnaps] = await Promise.all([
-    Promise.all(allUids.map((u) => getDoc(doc(db, "workouts", u)))),
-    Promise.all(friendUids.map((u) => getDoc(doc(db, "users", u)))),
-  ])
-
-  // Build sorted participant list
-  const participants = allUids.map((u, i) => {
-    const dates: string[] = workoutSnaps[i].exists() ? (workoutSnaps[i].data()!.dates ?? []) : []
-    const count = workoutCountForMonth(dates, yearMonth)
-    const name =
-      u === uid
-        ? displayName
-        : friendProfileSnaps[i - 1]?.exists()
-          ? (friendProfileSnaps[i - 1].data()!.displayName ?? "Utilizador")
-          : "Utilizador"
-    return { uid: u, displayName: name, workoutCount: count }
-  })
-
-  // Sort descending by workoutCount; break ties deterministically by uid
-  participants.sort(
-    (a, b) => b.workoutCount - a.workoutCount || a.uid.localeCompare(b.uid),
-  )
-
-  const ranked: RankingParticipant[] = participants.map((p, idx) => {
-    const position = idx + 1
-    return {
-      ...p,
-      position,
-      xpBonusAwarded: XP_RANK_BONUS[position] ?? XP_RANK_FALLBACK,
-    }
-  })
-
-  const myEntry = ranked.find((p) => p.uid === uid)
-  if (!myEntry) return
-
-  const xpEventKey = `rank_bonus:${yearMonth}`
-  const xpEventRef = doc(db, "users", uid, "xpEvents", xpEventKey)
-
-  // Pair refs to write (uid outranked these participants)
-  const pairRefs = ranked
-    .filter((p) => myEntry.position < p.position)
-    .map((p) => ({
-      ref: doc(db, "monthlyRankings", yearMonth, "pairs", `${uid}_${p.uid}`),
-      data: {
-        senderUid: uid,
-        recipientUid: p.uid,
-        senderPosition: myEntry.position,
-        recipientPosition: p.position,
-      },
-    }))
 
   await runTransaction(db, async (tx) => {
-    // All reads must precede all writes in a Firestore transaction
-    const [circleSnap2, xpEventSnap] = await Promise.all([
-      tx.get(circleRef),
+    // Phase 1: early exit — cheapest possible check
+    const circleSnap = await tx.get(circleRef)
+    if (circleSnap.exists()) return
+
+    // Phase 2: fetch user profile to get friends list
+    const userSnap = await tx.get(userRef)
+    if (!userSnap.exists()) return
+
+    const friendUids: string[] = userSnap.data().friends ?? []
+    const allUids = [uid, ...friendUids]
+
+    // Phase 3: fetch all workout docs, friend profiles, and xpEvent in parallel
+    const xpEventKey = `rank_bonus:${yearMonth}`
+    const xpEventRef = doc(db, "users", uid, "xpEvents", xpEventKey)
+
+    const [workoutSnaps, friendProfileSnaps, xpEventSnap] = await Promise.all([
+      Promise.all(allUids.map((u) => tx.get(doc(db, "workouts", u)))),
+      Promise.all(friendUids.map((u) => tx.get(doc(db, "users", u)))),
       tx.get(xpEventRef),
     ])
 
-    if (circleSnap2.exists()) return // already closed by a concurrent session
+    // Build sorted participant list
+    const participants = allUids.map((u, i) => {
+      const dates: string[] = workoutSnaps[i].exists() ? (workoutSnaps[i].data()!.dates ?? []) : []
+      const count = workoutCountForMonth(dates, yearMonth)
+      const name =
+        u === uid
+          ? displayName
+          : friendProfileSnaps[i - 1]?.exists()
+            ? (friendProfileSnaps[i - 1].data()!.displayName ?? "Utilizador")
+            : "Utilizador"
+      return { uid: u, displayName: name, workoutCount: count }
+    })
 
-    // --- Writes ---
+    // Sort descending by workoutCount; break ties deterministically by uid
+    participants.sort(
+      (a, b) => b.workoutCount - a.workoutCount || a.uid.localeCompare(b.uid),
+    )
+
+    const ranked: RankingParticipant[] = participants.map((p, idx) => {
+      const position = idx + 1
+      return {
+        ...p,
+        position,
+        xpBonusAwarded: XP_RANK_BONUS[position] ?? XP_RANK_FALLBACK,
+      }
+    })
+
+    const myEntry = ranked.find((p) => p.uid === uid)
+    if (!myEntry) return
+
+    // Pair refs to write (uid outranked these participants)
+    const pairRefs = ranked
+      .filter((p) => myEntry.position < p.position)
+      .map((p) => ({
+        ref: doc(db, "monthlyRankings", yearMonth, "pairs", `${uid}_${p.uid}`),
+        data: {
+          senderUid: uid,
+          recipientUid: p.uid,
+          senderPosition: myEntry.position,
+          recipientPosition: p.position,
+        },
+      }))
+
+    // --- Writes (all reads must precede all writes) ---
 
     // 1. Immutable circle snapshot
     tx.set(circleRef, {
@@ -142,7 +139,7 @@ export async function closeMonthIfNeeded(
       })
     }
 
-    // 3. Eligibility pairs (used in Phase 3 shop)
+    // 3. Eligibility pairs (used in shop)
     for (const { ref, data } of pairRefs) {
       tx.set(ref, data)
     }

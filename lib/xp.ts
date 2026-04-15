@@ -64,6 +64,7 @@ export async function migrateCurrentMonthXp(uid: string): Promise<void> {
  * Reverses the +10 XP when a workout day is unmarked.
  * Idempotent — uses eventKey "reversal:{dateKey}" to prevent double-reversal.
  * xpAvailable may go negative if XP was already spent.
+ * xpTotal is clamped at 0 to prevent it from going negative due to data corruption.
  */
 export async function reverseWorkoutXp(uid: string, dateKey: string): Promise<void> {
   const db = getDb()
@@ -72,17 +73,31 @@ export async function reverseWorkoutXp(uid: string, dateKey: string): Promise<vo
   const reversalRef = doc(db, "users", uid, "xpEvents", `reversal:${dateKey}`)
 
   await runTransaction(db, async (tx) => {
-    const [eventSnap, reversalSnap] = await Promise.all([tx.get(eventRef), tx.get(reversalRef)])
+    const [eventSnap, reversalSnap, userSnap] = await Promise.all([
+      tx.get(eventRef),
+      tx.get(reversalRef),
+      tx.get(userRef),
+    ])
     if (!eventSnap.exists() || reversalSnap.exists()) return // nothing to reverse or already reversed
 
+    const currentXpTotal: number = userSnap.data()?.xpTotal ?? 0
+    const currentXpAvailable: number = userSnap.data()?.xpAvailable ?? 0
+    const currentXpSpent: number = userSnap.data()?.xpSpent ?? 0
+
+    // Clamp the delta so xpTotal never goes negative
+    const delta = Math.min(XP_WORKOUT, currentXpTotal)
+    const newXpTotal = currentXpTotal - delta
+    // xpAvailable can legitimately go negative (user spent XP before reversing workout)
+    const newXpAvailable = newXpTotal - currentXpSpent
+
     tx.update(userRef, {
-      xpTotal: increment(-XP_WORKOUT),
-      xpAvailable: increment(-XP_WORKOUT),
+      xpTotal: newXpTotal,
+      xpAvailable: newXpAvailable,
     })
     tx.set(reversalRef, {
       eventKey: `reversal:${dateKey}`,
       type: "reversal",
-      amount: -XP_WORKOUT,
+      amount: -delta,
       createdAt: Timestamp.now(),
       meta: { date: dateKey },
     })

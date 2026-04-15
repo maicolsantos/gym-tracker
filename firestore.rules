@@ -16,9 +16,27 @@ service cloud.firestore {
         && request.resource.data.xpSpent == 0
         && request.resource.data.xpAvailable == 0;
 
-      // Owner can update anything on their own document
-      // Others can only add/remove themselves from friends[] (no duplicates)
-      allow update: if request.auth.uid == uid
+      // Owner can update display fields only, or XP fields only (with invariant enforced).
+      // XP fields are NOT freely writable — splitting prevents mixing display + XP in one write,
+      // and the invariant (xpAvailable == xpTotal - xpSpent) must always hold.
+      // Note: full prevention of arbitrary XP self-award requires Cloud Functions.
+      // Others can only add/remove themselves from friends[] (no duplicates).
+      allow update: if (
+          request.auth.uid == uid
+          && (
+            // Case 1: only updating display fields — XP fields must not change
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL'])
+            ||
+            // Case 2: only updating XP fields — invariant must hold.
+            // xpAvailable CAN be negative (user spent XP then reversed a workout).
+            (request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['xpTotal', 'xpSpent', 'xpAvailable'])
+             && request.resource.data.xpTotal >= 0
+             && request.resource.data.xpSpent >= 0
+             && request.resource.data.xpAvailable
+                  == request.resource.data.xpTotal - request.resource.data.xpSpent)
+          )
+        )
         || (
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends'])
           && (
@@ -90,7 +108,8 @@ service cloud.firestore {
             || request.auth.uid == resource.data.recipientUid);
 
       // Only the sender can create — document ID must be {senderUid}_{recipientUid}_{yearMonth}
-      // Eligibility is enforced client-side (pair docs may not exist for friends added after month close)
+      // Eligibility is enforced server-side: the pair doc must exist, confirming sender outranked
+      // recipient that month. This prevents crafted writes that bypass client-side checks.
       allow create: if request.auth != null
         && request.auth.uid == request.resource.data.senderUid
         && request.resource.data.keys().hasOnly([
@@ -99,7 +118,8 @@ service cloud.firestore {
            ])
         && request.resource.data.senderUid is string
         && request.resource.data.recipientUid is string
-        && request.resource.data.senderUid != request.resource.data.recipientUid;
+        && request.resource.data.senderUid != request.resource.data.recipientUid
+        && exists(/databases/$(database)/documents/monthlyRankings/$(request.resource.data.yearMonth)/pairs/$(request.auth.uid + '_' + request.resource.data.recipientUid));
 
       // Humiliations are immutable and permanent
       allow update, delete: if false;
@@ -115,7 +135,10 @@ service cloud.firestore {
             ));
 
       // Only create/update own workouts — delete is not permitted
-      allow create, update: if request.auth.uid == uid;
+      // Field validation: only 'dates' (a list) is allowed
+      allow create, update: if request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['dates'])
+        && request.resource.data.dates is list;
       allow delete: if false;
     }
 

@@ -7,12 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { lookupFriendCode, addFriend, fetchFriendProfiles } from "@/lib/friends"
-import type { UserProfile } from "@/lib/friends"
+import type { FriendProfile } from "@/lib/friends"
 
 interface AddFriendFormProps {
   currentUid: string
   currentFriends: string[]
-  onFriendAdded: (profile: UserProfile) => void
+  onFriendAdded: (profile: FriendProfile) => void
 }
 
 export function AddFriendForm({ currentUid, currentFriends, onFriendAdded }: AddFriendFormProps) {

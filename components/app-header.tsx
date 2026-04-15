@@ -25,13 +25,16 @@ const themeOptions: { value: Theme; label: string; icon: React.ReactNode }[] = [
 export function AppHeader() {
   const { user, signOut } = useAuth()
   const { theme, setTheme } = useTheme()
-  const { humiliation, activeHumiliation } = useHumiliationsInbox(user?.uid ?? null)
+  const { humiliation, activeHumiliation, loading: humiliationLoading } = useHumiliationsInbox(user?.uid ?? null)
   const avatarEmoji =
     activeHumiliation &&
     (activeHumiliation.itemSnapshot.category === "avatar" ||
       activeHumiliation.itemSnapshot.category === "combo")
       ? (activeHumiliation.itemSnapshot.emoji ?? null)
       : null
+  // Suppress the real photo while humiliations are loading to avoid a flash
+  // between the real avatar and the humiliation emoji once Firestore responds
+  const showPhoto = !humiliationLoading && !avatarEmoji
 
   if (!user) return null
 
@@ -49,7 +52,7 @@ export function AppHeader() {
         {/* Esquerda: avatar + nome — link para home */}
         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <Avatar className="h-8 w-8 shrink-0">
-            {!avatarEmoji && (
+            {showPhoto && (
               <AvatarImage src={user.photoURL ?? ""} referrerPolicy="no-referrer" />
             )}
             <AvatarFallback className={avatarEmoji ? "text-base" : "text-xs"}>

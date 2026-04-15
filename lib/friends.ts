@@ -23,6 +23,15 @@ export interface UserProfile {
   xpAvailable: number
 }
 
+// Friend profiles omit XP fields — other users' balances are not exposed
+export interface FriendProfile {
+  uid: string
+  displayName: string
+  photoURL: string | null
+  friendCode: string
+  friends: string[]
+}
+
 const FRIEND_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 export function generateFriendCode(): string {
@@ -107,12 +116,29 @@ export async function lookupFriendCode(code: string): Promise<string | null> {
   return snap.data().uid as string
 }
 
+const MAX_FRIENDS = 50
+
 export async function addFriend(currentUid: string, friendUid: string): Promise<void> {
   const db = getDb()
-  const batch = writeBatch(db)
-  batch.update(doc(db, "users", currentUid), { friends: arrayUnion(friendUid) })
-  batch.update(doc(db, "users", friendUid), { friends: arrayUnion(currentUid) })
-  await batch.commit()
+  await runTransaction(db, async (tx) => {
+    const [currentSnap, friendSnap] = await Promise.all([
+      tx.get(doc(db, "users", currentUid)),
+      tx.get(doc(db, "users", friendUid)),
+    ])
+
+    const currentFriends: string[] = currentSnap.data()?.friends ?? []
+    const friendFriends: string[] = friendSnap.data()?.friends ?? []
+
+    if (currentFriends.length >= MAX_FRIENDS) {
+      throw new Error(`Atingiste o limite de ${MAX_FRIENDS} amigos.`)
+    }
+    if (friendFriends.length >= MAX_FRIENDS) {
+      throw new Error("Este utilizador atingiu o limite de amigos.")
+    }
+
+    tx.update(doc(db, "users", currentUid), { friends: arrayUnion(friendUid) })
+    tx.update(doc(db, "users", friendUid), { friends: arrayUnion(currentUid) })
+  })
 }
 
 export async function removeFriend(currentUid: string, friendUid: string): Promise<void> {
@@ -123,9 +149,9 @@ export async function removeFriend(currentUid: string, friendUid: string): Promi
   await batch.commit()
 }
 
-export async function fetchFriendProfiles(uids: string[]): Promise<Map<string, UserProfile>> {
+export async function fetchFriendProfiles(uids: string[]): Promise<Map<string, FriendProfile>> {
   const db = getDb()
-  const profiles = new Map<string, UserProfile>()
+  const profiles = new Map<string, FriendProfile>()
   if (uids.length === 0) return profiles
 
   await Promise.all(
