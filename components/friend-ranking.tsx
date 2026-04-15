@@ -78,7 +78,7 @@ function RankingList({
             {getOrdinal(idx + 1)}
           </span>
           <Avatar className="h-8 w-8">
-            <AvatarImage src={entry.profile.photoURL ?? undefined} alt={entry.profile.displayName} />
+            <AvatarImage src={entry.profile.photoURL ?? undefined} alt={entry.profile.displayName} referrerPolicy="no-referrer" />
             <AvatarFallback>{getInitials(entry.profile.displayName)}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
@@ -125,7 +125,7 @@ function YearPodium({ entries }: { entries: RankingEntry[] }) {
                 <>
                   <span className="text-lg mb-1">{emoji}</span>
                   <Avatar className={avatarClass}>
-                    <AvatarImage src={entry.profile.photoURL ?? undefined} alt={entry.profile.displayName} />
+                    <AvatarImage src={entry.profile.photoURL ?? undefined} alt={entry.profile.displayName} referrerPolicy="no-referrer" />
                     <AvatarFallback className="text-xs">{getInitials(entry.profile.displayName)}</AvatarFallback>
                   </Avatar>
                   <p className="text-xs font-medium mt-1 truncate max-w-full text-center px-1">
@@ -167,7 +167,7 @@ function YearPodium({ entries }: { entries: RankingEntry[] }) {
                 {getOrdinal(idx + 4)}
               </span>
               <Avatar className="h-7 w-7">
-                <AvatarImage src={entry.profile.photoURL ?? undefined} alt={entry.profile.displayName} />
+                <AvatarImage src={entry.profile.photoURL ?? undefined} alt={entry.profile.displayName} referrerPolicy="no-referrer" />
                 <AvatarFallback className="text-xs">{getInitials(entry.profile.displayName)}</AvatarFallback>
               </Avatar>
               <p className="flex-1 text-sm font-medium truncate">
@@ -388,7 +388,7 @@ export function FriendRanking({
                               {getOrdinal(idx + 1)}
                             </span>
                             <Avatar className="h-7 w-7">
-                              <AvatarImage src={entry.profile.photoURL ?? undefined} alt={entry.profile.displayName} />
+                              <AvatarImage src={entry.profile.photoURL ?? undefined} alt={entry.profile.displayName} referrerPolicy="no-referrer" />
                               <AvatarFallback className="text-xs">{getInitials(entry.profile.displayName)}</AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
