@@ -1,10 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight, Dumbbell, LogOut, Users } from "lucide-react"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { ChevronLeft, ChevronRight, Dumbbell } from "lucide-react"
 import { doc, getDoc, updateDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
@@ -13,8 +11,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { MONTHS, WEEKDAYS, getDaysInMonth, getFirstDayOfMonth, formatDateKey } from "@/lib/date-utils"
 
 export function Calendar() {
-  const { user, signOut } = useAuth()
-  const router = useRouter()
+  const { user } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set())
 
@@ -82,14 +79,6 @@ export function Calendar() {
     }
   }
 
-  const handleSignOut = async () => {
-    try {
-      await signOut()
-    } catch (err) {
-      console.error("Erro ao sair:", err)
-    }
-  }
-
   const isSelected = (day: number) => {
     const dateKey = formatDateKey(currentYear, currentMonth, day)
     return selectedDates.has(dateKey)
@@ -153,32 +142,10 @@ export function Calendar() {
       {/* Calendar Card */}
       <Card className="lg:col-span-2">
         <CardHeader className="pb-4">
-          <div className="flex items-center justify-between mb-4">
-            <CardTitle className="flex items-center gap-2">
-              <Dumbbell className="h-5 w-5" />
-              Tracker Ginásio
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <Button variant="ghost" size="icon" onClick={() => router.push("/friends")} title="Amigos">
-                <Users className="h-4 w-4" />
-              </Button>
-              {user?.photoURL && (
-                <img
-                  src={user.photoURL}
-                  alt=""
-                  className="h-7 w-7 rounded-full"
-                  referrerPolicy="no-referrer"
-                />
-              )}
-              <span className="text-sm text-muted-foreground hidden sm:inline">
-                {user?.displayName?.split(" ")[0]}
-              </span>
-              <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sair">
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          <CardTitle className="flex items-center gap-2 mb-4">
+            <Dumbbell className="h-5 w-5" />
+            Tracker Ginásio
+          </CardTitle>
           <div className="flex items-center justify-center gap-2">
             <Button variant="outline" size="icon" onClick={handlePrevMonth}>
               <ChevronLeft className="h-4 w-4" />

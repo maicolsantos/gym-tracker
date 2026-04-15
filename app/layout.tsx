@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Providers } from "@/components/providers"
 import { ServiceWorker } from "@/components/service-worker"
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
+import { AppHeader } from "@/components/app-header"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -55,6 +56,7 @@ export default function RootLayout({
         <Providers>
           <ServiceWorker />
           <PWAInstallPrompt />
+          <AppHeader />
           {children}
         </Providers>
 </body>

@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Users } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Users } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { FriendCodeDisplay } from "@/components/friend-code-display"
@@ -54,15 +53,10 @@ export default function FriendsPage() {
   return (
     <div className="min-h-dvh bg-background">
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/")}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="text-xl font-semibold flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Amigos
-          </h1>
-        </div>
+        <h1 className="text-xl font-semibold flex items-center gap-2">
+          <Users className="h-5 w-5" />
+          Amigos
+        </h1>
 
         {loading || authLoading ? (
           <div className="space-y-3">
