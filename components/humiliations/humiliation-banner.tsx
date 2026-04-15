@@ -31,7 +31,7 @@ export function HumiliationBanner({ humiliation, onDismiss }: HumiliationBannerP
 
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-yellow-600 dark:text-yellow-400 leading-tight">
-          {senderDisplayName} humilhou-te!
+          {senderDisplayName} te humilhou!
         </p>
         <p className="text-muted-foreground mt-0.5">
           <span className="font-medium text-foreground">{title}</span>
@@ -40,7 +40,7 @@ export function HumiliationBanner({ humiliation, onDismiss }: HumiliationBannerP
         </p>
         {(category === "nickname" || category === "combo") && nicknameText && (
           <p className="mt-1 text-xs text-muted-foreground">
-            Alcunha atribuída:{" "}
+            Apelido atribuído:{" "}
             <span className="font-semibold text-foreground italic">
               &ldquo;{nicknameText}&rdquo;
             </span>

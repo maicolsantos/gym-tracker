@@ -11,7 +11,7 @@ export interface ShopItem {
 }
 
 export const SHOP_CATALOG: ShopItem[] = [
-  // ── Alcunhas (50–150 XP) ────────────────────────────────────────────────────
+  // ── Apelidos (50–150 XP) ────────────────────────────────────────────────────
   {
     id: "nickname_treina_fofo",
     title: "Treina Fofo",
@@ -107,7 +107,7 @@ export const SHOP_CATALOG: ShopItem[] = [
   {
     id: "combo_fofo_colher",
     title: "Fofo com Colher",
-    description: "Alcunha 'Treina Fofo' + foto 🥄",
+    description: "Apelido 'Treina Fofo' + foto 🥄",
     xpCost: 500,
     category: "combo",
     emoji: "🥄",
@@ -116,7 +116,7 @@ export const SHOP_CATALOG: ShopItem[] = [
   {
     id: "combo_segunda_tartaruga",
     title: "Atleta Tartaruga",
-    description: "Alcunha 'Atleta de Segunda' + foto 🐢",
+    description: "Apelido 'Atleta de Segunda' + foto 🐢",
     xpCost: 600,
     category: "combo",
     emoji: "🐢",
@@ -125,7 +125,7 @@ export const SHOP_CATALOG: ShopItem[] = [
   {
     id: "combo_banco_dormindo",
     title: "Campeão Adormecido",
-    description: "Alcunha 'Campeão do Banco' + foto 😴",
+    description: "Apelido 'Campeão do Banco' + foto 😴",
     xpCost: 700,
     category: "combo",
     emoji: "😴",
@@ -134,7 +134,7 @@ export const SHOP_CATALOG: ShopItem[] = [
   {
     id: "combo_pena_palhinhas",
     title: "Pluma Atlética",
-    description: "Alcunha 'Levanta Palhinhas' + foto 🪶",
+    description: "Apelido 'Levanta Palhinhas' + foto 🪶",
     xpCost: 800,
     category: "combo",
     emoji: "🪶",
@@ -143,7 +143,7 @@ export const SHOP_CATALOG: ShopItem[] = [
 ]
 
 export const CATEGORY_LABELS: Record<ShopCategory, string> = {
-  nickname: "Alcunhas",
+  nickname: "Apelidos",
   avatar: "Foto de Perfil",
   combo: "Combinados",
 }
