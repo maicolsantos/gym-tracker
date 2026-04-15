@@ -116,6 +116,17 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+@keyframes xp-float {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  60%  { opacity: 1; transform: translateY(-14px) scale(1.1); }
+  100% { opacity: 0; transform: translateY(-24px) scale(0.9); }
+}
+
+.animate-xp-float {
+  animation: xp-float 1s ease-out forwards;
+  pointer-events: none;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

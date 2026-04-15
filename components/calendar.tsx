@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight, Dumbbell } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { ChevronLeft, ChevronRight, Dumbbell, Zap } from "lucide-react"
 import { doc, getDoc, updateDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,11 +10,21 @@ import { getDb } from "@/lib/firebase"
 import { useAuth } from "@/contexts/auth-context"
 import { MONTHS, WEEKDAYS, getDaysInMonth, getFirstDayOfMonth, formatDateKey } from "@/lib/date-utils"
 import { awardWorkoutXp, reverseWorkoutXp } from "@/lib/xp"
+import { useXp } from "@/hooks/use-xp"
+import { XP_WORKOUT } from "@/lib/xp-config"
+
+interface XpFlash {
+  amount: number
+  id: number
+}
 
 export function Calendar() {
   const { user } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set())
+  const [xpFlash, setXpFlash] = useState<XpFlash | null>(null)
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { xpAvailable } = useXp()
 
   const currentYear = currentDate.getFullYear()
   const currentMonth = currentDate.getMonth()
@@ -46,6 +56,12 @@ export function Calendar() {
     setCurrentDate(new Date(currentYear, currentMonth + 1, 1))
   }
 
+  const triggerXpFlash = (amount: number) => {
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
+    setXpFlash({ amount, id: Date.now() })
+    flashTimerRef.current = setTimeout(() => setXpFlash(null), 1000)
+  }
+
   const toggleDate = async (day: number) => {
     if (!user) return
     const dateKey = formatDateKey(currentYear, currentMonth, day)
@@ -61,6 +77,9 @@ export function Calendar() {
       else next.add(dateKey)
       return next
     })
+
+    // Show XP flash immediately (optimistic)
+    triggerXpFlash(removing ? -XP_WORKOUT : XP_WORKOUT)
 
     // Atomic Firestore update
     const docRef = doc(getDb(), "workouts", user.uid)
@@ -194,6 +213,30 @@ export function Calendar() {
           <div className="p-4 rounded-lg bg-primary text-primary-foreground">
             <p className="text-sm opacity-90">Total de dias treinados</p>
             <p className="text-3xl font-bold">{totalSelected}</p>
+          </div>
+
+          {/* XP disponível */}
+          <div className="relative p-3 rounded-lg bg-muted flex items-center justify-between overflow-hidden">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-yellow-500 shrink-0" />
+              <span className="text-sm font-medium">XP disponível</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {xpFlash && (
+                <span
+                  key={xpFlash.id}
+                  className={cn(
+                    "text-xs font-bold tabular-nums animate-xp-float",
+                    xpFlash.amount > 0 ? "text-green-500" : "text-red-500",
+                  )}
+                >
+                  {xpFlash.amount > 0 ? "+" : ""}{xpFlash.amount} XP
+                </span>
+              )}
+              <span className="text-base font-bold tabular-nums">
+                {xpAvailable.toLocaleString("pt-BR")}
+              </span>
+            </div>
           </div>
 
           {/* Monthly breakdown */}

@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/auth-context"
 export function useXp() {
   const { user } = useAuth()
   const [xpAvailable, setXpAvailable] = useState(0)
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -17,11 +18,12 @@ export function useXp() {
         if (snap.exists()) {
           setXpAvailable(snap.data().xpAvailable ?? 0)
         }
+        setLoaded(true)
       },
       (err) => console.error("Erro ao subscrever XP:", err),
     )
     return unsub
   }, [user])
 
-  return xpAvailable
+  return { xpAvailable, loaded }
 }

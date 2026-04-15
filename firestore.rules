@@ -38,9 +38,12 @@ service cloud.firestore {
 
       match /xpEvents/{eventKey} {
         allow read: if request.auth.uid == uid;
-        // Only the owner can append — update and delete are forbidden (append-only)
+        // Only the owner can append — update is forbidden
         allow create: if request.auth.uid == uid;
-        allow update, delete: if false;
+        allow update: if false;
+        // Owner may delete reversal events only (allows re-marking a workout after removal)
+        // Award events cannot be deleted, preventing double-awarding
+        allow delete: if request.auth.uid == uid && resource.data.type == "reversal";
       }
     }
 
@@ -54,6 +57,28 @@ service cloud.firestore {
       // Codes are immutable once created
       allow update: if false;
       allow delete: if false;
+    }
+
+    match /monthlyRankings/{yearMonth} {
+      // Circle snapshots — one per user per month, immutable once created
+      match /circles/{uid} {
+        // Any authenticated user can read (friends need to see each other's circles)
+        allow read: if request.auth != null;
+        // Only the owner creates their own circle snapshot
+        allow create: if request.auth.uid == uid;
+        allow update, delete: if false;
+      }
+
+      // Eligibility pairs — sender outranked recipient in this month
+      match /pairs/{pairId} {
+        // Any authenticated user can read (needed for eligibility checks at purchase time)
+        allow read: if request.auth != null;
+        // Only the sender can create a pair where they are listed as sender
+        allow create: if request.auth != null
+          && request.resource.data.senderUid == request.auth.uid;
+        // Pairs are immutable (merge:true in client still goes through create rule on first write)
+        allow update, delete: if false;
+      }
     }
 
     match /workouts/{uid} {
