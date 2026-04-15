@@ -72,6 +72,7 @@ export function useHumiliationsInbox(currentUid: string | null) {
 
         const all: ActiveHumiliation[] = snap.docs
           .map((d) => ({ id: d.id, ...d.data() } as ActiveHumiliation))
+          .filter((h) => h.yearMonth === yearMonth)
           .sort((a, b) => a.id.localeCompare(b.id))
 
         const dismissed = getDismissedIds()
