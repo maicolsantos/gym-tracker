@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { getDb } from "@/lib/firebase"
 import { useAuth } from "@/contexts/auth-context"
 import { MONTHS, WEEKDAYS, getDaysInMonth, getFirstDayOfMonth, formatDateKey } from "@/lib/date-utils"
+import { awardWorkoutXp, reverseWorkoutXp } from "@/lib/xp"
 
 export function Calendar() {
   const { user } = useAuth()
@@ -75,8 +76,13 @@ export function Calendar() {
         console.error("Erro ao salvar treino:", err)
         // Rollback to pre-optimistic snapshot
         setSelectedDates(snapshot)
+        return
       }
     }
+
+    // Award / reverse XP after workout write succeeds (fire-and-forget)
+    const xpFn = removing ? reverseWorkoutXp : awardWorkoutXp
+    xpFn(user.uid, dateKey).catch((err) => console.error("Erro ao atualizar XP:", err))
   }
 
   const isSelected = (day: number) => {

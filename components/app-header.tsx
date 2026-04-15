@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { useTheme, type Theme } from "@/contexts/theme-context"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { XpBadge } from "@/components/xp-badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,9 +44,12 @@ export function AppHeader() {
             <AvatarImage src={user.photoURL ?? ""} referrerPolicy="no-referrer" />
             <AvatarFallback className="text-xs">{initials}</AvatarFallback>
           </Avatar>
-          <span className="text-sm font-medium truncate max-w-[140px] sm:max-w-none">
-            {firstName}
-          </span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-medium truncate max-w-[140px] sm:max-w-none leading-tight">
+              {firstName}
+            </span>
+            <XpBadge />
+          </div>
         </Link>
 
         {/* Direita: home, amigos, gear dropdown */}

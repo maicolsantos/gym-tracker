@@ -7,11 +7,14 @@ service cloud.firestore {
 
       // Only create your own document, with validated fields only
       allow create: if request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['displayName','photoURL','friendCode','friends','createdAt'])
+        && request.resource.data.keys().hasOnly(['displayName','photoURL','friendCode','friends','createdAt','xpTotal','xpSpent','xpAvailable'])
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() <= 100
         && request.resource.data.friends is list
-        && request.resource.data.friends.size() == 0;
+        && request.resource.data.friends.size() == 0
+        && request.resource.data.xpTotal == 0
+        && request.resource.data.xpSpent == 0
+        && request.resource.data.xpAvailable == 0;
 
       // Owner can update anything on their own document
       // Others can only add/remove themselves from friends[] (no duplicates)
@@ -32,6 +35,13 @@ service cloud.firestore {
         );
 
       allow delete: if false;
+
+      match /xpEvents/{eventKey} {
+        allow read: if request.auth.uid == uid;
+        // Only the owner can append — update and delete are forbidden (append-only)
+        allow create: if request.auth.uid == uid;
+        allow update, delete: if false;
+      }
     }
 
     match /friendCodes/{code} {

@@ -196,7 +196,15 @@ value: "hum_abc123"   // ID da última humilhação mostrada
 |------------|-----------|
 | `components/calendar.tsx` | Integrar `awardWorkoutXp` / `reverseWorkoutXp` no toggle de data |
 | `components/friend-ranking.tsx` | Badge de XP bónus por posição + botão "Loja" |
-| `app/page.tsx` | Adicionar `XpBadge` e `HumiliationBanner` no topo |
+| `app/page.tsx` | Adicionar `HumiliationBanner` no topo |
+| `components/app-header.tsx` | Exibir XP disponível do utilizador abaixo do nome, ao lado do avatar |
+
+> **Detalhe do header**: a secção esquerda do `AppHeader` (avatar + nome) deve mostrar também o XP do utilizador imediatamente abaixo do nome, em texto menor e com cor secundária. Exemplo:
+> ```
+> [avatar]  Maicol
+>           1 240 XP
+> ```
+> O valor é atualizado em tempo real via `hooks/use-xp.ts` com subscrição ao documento `users/{uid}`.
 
 ### Novos hooks e libs
 | Arquivo | Responsabilidade |

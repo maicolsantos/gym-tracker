@@ -18,6 +18,9 @@ export interface UserProfile {
   photoURL: string | null
   friendCode: string
   friends: string[]
+  xpTotal: number
+  xpSpent: number
+  xpAvailable: number
 }
 
 const FRIEND_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -45,6 +48,9 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
       photoURL: data.photoURL,
       friendCode: data.friendCode,
       friends: data.friends ?? [],
+      xpTotal: data.xpTotal ?? 0,
+      xpSpent: data.xpSpent ?? 0,
+      xpAvailable: data.xpAvailable ?? 0,
     }
   }
 
@@ -65,6 +71,9 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
           friendCode: code,
           friends: [],
           createdAt: Timestamp.now(),
+          xpTotal: 0,
+          xpSpent: 0,
+          xpAvailable: 0,
         })
         tx.set(codeRef, { uid: user.uid })
       })
@@ -75,6 +84,9 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
         photoURL: user.photoURL ?? null,
         friendCode: code,
         friends: [],
+        xpTotal: 0,
+        xpSpent: 0,
+        xpAvailable: 0,
       }
     } catch (err) {
       if (err instanceof Error && err.message === "CODE_COLLISION") {
