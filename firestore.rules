@@ -81,6 +81,29 @@ service cloud.firestore {
       }
     }
 
+    match /humiliations/{humiliationId} {
+      // Only sender and recipient can read their humiliation
+      allow read: if request.auth != null
+        && (request.auth.uid == resource.data.senderUid
+            || request.auth.uid == resource.data.recipientUid);
+
+      // Only the sender can create — document ID must be {senderUid}_{recipientUid}_{yearMonth}
+      // Eligibility is enforced server-side by requiring the pair document to exist
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.senderUid
+        && request.resource.data.keys().hasOnly([
+             'senderUid','recipientUid','yearMonth','itemId','itemSnapshot',
+             'createdAt','senderDisplayName','recipientDisplayName'
+           ])
+        && request.resource.data.senderUid is string
+        && request.resource.data.recipientUid is string
+        && request.resource.data.senderUid != request.resource.data.recipientUid
+        && exists(/databases/$(database)/documents/monthlyRankings/$(request.resource.data.yearMonth)/pairs/$(request.resource.data.senderUid + '_' + request.resource.data.recipientUid));
+
+      // Humiliations are immutable and permanent
+      allow update, delete: if false;
+    }
+
     match /workouts/{uid} {
       // Own doc always readable; friends can read if listed in owner's friends[]
       allow read: if request.auth != null

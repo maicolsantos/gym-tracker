@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Trophy, CalendarDays } from "lucide-react"
+import { Trophy, CalendarDays, ShoppingBag } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -16,6 +16,8 @@ import { fetchFriendWorkouts, fetchFriendProfiles } from "@/lib/friends"
 import type { UserProfile } from "@/lib/friends"
 import { MONTHS } from "@/lib/date-utils"
 import { cn } from "@/lib/utils"
+import { ShopDialog } from "@/components/shop/shop-dialog"
+import { useXp } from "@/hooks/use-xp"
 
 interface RankingEntry {
   profile: UserProfile
@@ -192,6 +194,8 @@ export function FriendRanking({
   const [allWorkoutDates, setAllWorkoutDates] = useState<Map<string, string[]>>(new Map())
   const [loading, setLoading] = useState(true)
   const [showHistory, setShowHistory] = useState(false)
+  const [showShop, setShowShop] = useState(false)
+  const { xpAvailable } = useXp()
 
   // Serialize Set to stable string so the effect only re-runs when dates actually change
   const workoutsKey = useMemo(
@@ -297,21 +301,34 @@ export function FriendRanking({
     )
   }
 
+  const displayName = currentUserProfile?.displayName ?? ""
+
   return (
     <>
       <div className="space-y-6 py-2">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">{monthLabel}</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs gap-1 text-muted-foreground"
-              onClick={() => setShowHistory(true)}
-            >
-              <CalendarDays className="h-3 w-3" />
-              Histórico
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs gap-1 text-muted-foreground"
+                onClick={() => setShowShop(true)}
+              >
+                <ShoppingBag className="h-3 w-3" />
+                Loja
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs gap-1 text-muted-foreground"
+                onClick={() => setShowHistory(true)}
+              >
+                <CalendarDays className="h-3 w-3" />
+                Histórico
+              </Button>
+            </div>
           </div>
           <RankingList entries={monthEntries} emptyMessage="Nenhum treino este mês" />
         </div>
@@ -325,6 +342,14 @@ export function FriendRanking({
           <YearPodium entries={yearEntries} />
         </div>
       </div>
+
+      <ShopDialog
+        open={showShop}
+        onOpenChange={setShowShop}
+        currentUid={currentUid}
+        currentUserDisplayName={displayName}
+        xpAvailable={xpAvailable}
+      />
 
       <Dialog open={showHistory} onOpenChange={setShowHistory}>
         <DialogContent className="max-w-sm max-h-[80vh] overflow-y-auto overscroll-contain">
