@@ -94,7 +94,11 @@ export function useHumiliationsInbox(currentUid: string | null) {
 
     getDocs(q)
       .then((snap) => {
-        if (snap.empty) return
+        if (snap.empty) {
+          setActive(null)
+          setCurrent(null)
+          return
+        }
 
         const all: ActiveHumiliation[] = snap.docs
           .map((d) => ({ id: d.id, ...d.data() } as ActiveHumiliation))
