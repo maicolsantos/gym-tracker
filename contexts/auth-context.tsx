@@ -8,6 +8,7 @@ import {
   type User,
 } from "firebase/auth"
 import { getAuth, getGoogleProvider } from "@/lib/firebase"
+import { ensureXpFields } from "@/lib/xp"
 
 interface AuthContextType {
   user: User | null
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(getAuth(), (user) => {
       setUser(user)
       setLoading(false)
+      if (user) ensureXpFields(user.uid).catch(console.error)
     })
     return unsubscribe
   }, [])

@@ -1,4 +1,4 @@
-import { doc, getDoc, runTransaction, increment, Timestamp } from "firebase/firestore"
+import { doc, getDoc, getDocs, collection, runTransaction, increment, updateDoc, Timestamp } from "firebase/firestore"
 import { getDb } from "@/lib/firebase"
 import { XP_WORKOUT } from "@/lib/xp-config"
 
@@ -38,6 +38,43 @@ export async function awardWorkoutXp(uid: string, dateKey: string): Promise<void
       tx.delete(reversalRef)
     }
   })
+}
+
+/**
+ * Ensures xpTotal / xpAvailable / xpSpent exist on the user document.
+ * Derives xpTotal by summing xpEvents if the field is absent.
+ * Safe to call on every login — no-op when all fields are already present.
+ */
+export async function ensureXpFields(uid: string): Promise<void> {
+  const db = getDb()
+  const userRef = doc(db, "users", uid)
+  const userSnap = await getDoc(userRef)
+  if (!userSnap.exists()) return
+
+  const data = userSnap.data()
+  const hasXpTotal = "xpTotal" in data
+  const hasXpAvailable = "xpAvailable" in data
+  const hasXpSpent = "xpSpent" in data
+
+  if (hasXpTotal && hasXpAvailable && hasXpSpent) return
+
+  const xpSpent: number = hasXpSpent ? data.xpSpent : 0
+  let xpTotal: number
+
+  if (hasXpTotal) {
+    xpTotal = data.xpTotal
+  } else {
+    const eventsSnap = await getDocs(collection(db, "users", uid, "xpEvents"))
+    xpTotal = Math.max(0, eventsSnap.docs.reduce((sum, d) => sum + (d.data().amount ?? 0), 0))
+  }
+
+  const update: Record<string, number> = {}
+  if (!hasXpTotal) update.xpTotal = xpTotal
+  // Recalculate xpAvailable whenever xpTotal changes to maintain the invariant
+  if (!hasXpAvailable || !hasXpTotal) update.xpAvailable = xpTotal - xpSpent
+  if (!hasXpSpent) update.xpSpent = xpSpent
+
+  await updateDoc(userRef, update)
 }
 
 /**
