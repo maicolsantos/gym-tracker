@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { getConsentStatus, setConsentStatus } from "@/lib/cookie-consent"
 
@@ -36,8 +37,13 @@ export function CookieConsent({ onAccept, onDecline }: Props) {
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background p-4 shadow-lg">
       <div className="mx-auto flex max-w-4xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
-          Utilizamos cookies para análise de uso da aplicação. Ao aceitar, concorda com a recolha de dados
-          para melhorar a sua experiência.
+          Utilizamos <strong className="text-foreground">Vercel Analytics</strong> e{" "}
+          <strong className="text-foreground">Firebase Analytics</strong> para medir o desempenho
+          da aplicação. Ao aceitar, consente com a recolha de dados de uso. Consulte a nossa{" "}
+          <Link href="/privacidade" className="underline underline-offset-4 hover:text-foreground">
+            Política de Privacidade
+          </Link>
+          .
         </p>
         <div className="flex shrink-0 gap-2">
           <Button variant="outline" size="sm" onClick={handleDecline}>

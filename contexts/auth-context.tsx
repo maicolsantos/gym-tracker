@@ -9,6 +9,7 @@ import {
 } from "firebase/auth"
 import { getAuth, getGoogleProvider } from "@/lib/firebase"
 import { ensureXpFields } from "@/lib/xp"
+import { ensureUserProfile } from "@/lib/friends"
 
 interface AuthContextType {
   user: User | null
@@ -27,7 +28,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(getAuth(), (user) => {
       setUser(user)
       setLoading(false)
-      if (user) ensureXpFields(user.uid).catch(console.error)
+      if (user) {
+        // ensureUserProfile creates the users/{uid} doc if absent (required for XP writes)
+        ensureUserProfile(user)
+          .then(() => ensureXpFields(user.uid))
+          .catch(console.error)
+      }
     })
     return unsubscribe
   }, [])

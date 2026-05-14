@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Dumbbell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -77,6 +78,12 @@ export function Login() {
           {error && (
             <p className="text-sm text-destructive text-center mt-2">{error}</p>
           )}
+          <p className="text-xs text-muted-foreground text-center pt-1">
+            Consulte a nossa{" "}
+            <Link href="/privacidade" className="underline underline-offset-4 hover:text-foreground">
+              Política de Privacidade
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>

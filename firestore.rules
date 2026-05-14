@@ -52,16 +52,15 @@ service cloud.firestore {
           )
         );
 
-      allow delete: if false;
+      allow delete: if request.auth.uid == uid;
 
       match /xpEvents/{eventKey} {
         allow read: if request.auth.uid == uid;
         // Only the owner can append — update is forbidden
         allow create: if request.auth.uid == uid;
         allow update: if false;
-        // Owner may delete reversal events only (allows re-marking a workout after removal)
-        // Award events cannot be deleted, preventing double-awarding
-        allow delete: if request.auth.uid == uid && resource.data.type == "reversal";
+        // Owner may delete reversal events (re-marking workflow) or all events (account deletion)
+        allow delete: if request.auth.uid == uid;
       }
     }
 
@@ -72,9 +71,9 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.uid == request.auth.uid;
 
-      // Codes are immutable once created
+      // Codes are immutable once created; owner may delete (account deletion)
       allow update: if false;
-      allow delete: if false;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
 
     match /monthlyRankings/{yearMonth} {
@@ -121,8 +120,11 @@ service cloud.firestore {
         && request.resource.data.senderUid != request.resource.data.recipientUid
         && exists(/databases/$(database)/documents/monthlyRankings/$(request.resource.data.yearMonth)/pairs/$(request.auth.uid + '_' + request.resource.data.recipientUid));
 
-      // Humiliations are immutable and permanent
-      allow update, delete: if false;
+      // Humiliations are immutable; sender or recipient may delete (LGPD Art. 17 — right to erasure)
+      allow update: if false;
+      allow delete: if request.auth != null
+        && (request.auth.uid == resource.data.recipientUid
+            || request.auth.uid == resource.data.senderUid);
     }
 
     match /workouts/{uid} {
@@ -134,12 +136,12 @@ service cloud.firestore {
               && request.auth.uid in get(/databases/$(database)/documents/users/$(uid)).data.friends
             ));
 
-      // Only create/update own workouts — delete is not permitted
+      // Only create/update own workouts; owner may delete (account deletion)
       // Field validation: only 'dates' (a list) is allowed
       allow create, update: if request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['dates'])
         && request.resource.data.dates is list;
-      allow delete: if false;
+      allow delete: if request.auth.uid == uid;
     }
 
   }
