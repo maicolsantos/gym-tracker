@@ -1,6 +1,6 @@
 "use client"
 
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import type { EvaluatedBadge } from "@/hooks/use-badges"
 import { CATEGORY_META } from "@/lib/badges-catalog"
@@ -14,8 +14,8 @@ export function BadgeCard({ badge }: BadgeCardProps) {
   const color = CATEGORY_META[badge.category].colorClass
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
+    <Popover>
+      <PopoverTrigger asChild>
         <button
           type="button"
           aria-label={badge.title}
@@ -31,11 +31,11 @@ export function BadgeCard({ badge }: BadgeCardProps) {
             {badge.title}
           </span>
         </button>
-      </TooltipTrigger>
-      <TooltipContent side="top">
-        <p className="font-semibold">{badge.title}</p>
-        <p className="text-xs text-balance opacity-90">{badge.description}</p>
-      </TooltipContent>
-    </Tooltip>
+      </PopoverTrigger>
+      <PopoverContent side="top" className="w-56 p-3">
+        <p className="font-semibold text-sm">{badge.title}</p>
+        <p className="text-xs text-muted-foreground mt-1">{badge.description}</p>
+      </PopoverContent>
+    </Popover>
   )
 }
