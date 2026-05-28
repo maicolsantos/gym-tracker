@@ -54,6 +54,10 @@ service cloud.firestore {
 
       allow delete: if request.auth.uid == uid;
 
+      match /unlockedBadges/{badgeId} {
+        allow read, write: if request.auth.uid == uid;
+      }
+
       match /xpEvents/{eventKey} {
         allow read: if request.auth.uid == uid;
         // Only the owner can append — update is forbidden

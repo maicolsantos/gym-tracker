@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { loadBadgeContext } from "@/lib/badge-data"
+import { loadBadgeContext, getUnlockedBadges, persistNewBadges } from "@/lib/badge-data"
 import { evaluateBadges } from "@/lib/badges"
 import { BADGES } from "@/lib/badges-catalog"
 import type { BadgeDefinition } from "@/lib/badges-catalog"
@@ -34,11 +34,21 @@ export function useBadges(uid: string | null): UseBadgesResult {
     setLoading(true)
     setError(null)
 
-    loadBadgeContext(uid)
-      .then((ctx) => {
+    Promise.all([loadBadgeContext(uid), getUnlockedBadges(uid)])
+      .then(([ctx, persisted]) => {
         if (cancelled) return
-        const results = evaluateBadges(ctx)
-        setBadges(BADGES.map((b) => ({ ...b, unlocked: results[b.id] ?? false })))
+        const calculated = evaluateBadges(ctx)
+        const mergedIds = new Set([
+          ...Object.keys(calculated).filter((id) => calculated[id]),
+          ...persisted,
+        ])
+        const newlyUnlocked = Object.keys(calculated).filter(
+          (id) => calculated[id] && !persisted.has(id),
+        )
+        persistNewBadges(uid, newlyUnlocked).catch((err) =>
+          console.error("Erro ao persistir conquistas:", err),
+        )
+        setBadges(BADGES.map((b) => ({ ...b, unlocked: mergedIds.has(b.id) })))
       })
       .catch((err) => {
         if (cancelled) return

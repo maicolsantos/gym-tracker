@@ -1,4 +1,4 @@
-import { doc, getDoc, collection, query, where, getDocs, limit } from "firebase/firestore"
+import { doc, getDoc, collection, query, where, getDocs, limit, writeBatch, Timestamp } from "firebase/firestore"
 import { getDb } from "@/lib/firebase"
 import type { BadgeContext } from "@/lib/badges"
 
@@ -59,4 +59,20 @@ export async function loadBadgeContext(uid: string): Promise<BadgeContext> {
   })
 
   return { workoutDates, xpTotal, friendsCount, monthlyRankings, humiliationsSent, humiliationsReceived }
+}
+
+export async function getUnlockedBadges(uid: string): Promise<Set<string>> {
+  const db = getDb()
+  const snap = await getDocs(collection(db, "users", uid, "unlockedBadges"))
+  return new Set(snap.docs.map((d) => d.id))
+}
+
+export async function persistNewBadges(uid: string, newIds: string[]): Promise<void> {
+  if (newIds.length === 0) return
+  const db = getDb()
+  const batch = writeBatch(db)
+  for (const id of newIds) {
+    batch.set(doc(db, "users", uid, "unlockedBadges", id), { unlockedAt: Timestamp.now() })
+  }
+  await batch.commit()
 }
