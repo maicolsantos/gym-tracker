@@ -35,9 +35,12 @@ export async function deleteAccount(user: User): Promise<void> {
   const userSnap = await getDoc(doc(db, "users", uid))
   const friendCode: string | null = userSnap.exists() ? (userSnap.data().friendCode ?? null) : null
 
-  // 3. Delete xpEvents subcollection (chunked — Firestore batch limit is 500)
-  const xpEventsSnap = await getDocs(collection(db, "users", uid, "xpEvents"))
-  await batchDeleteDocs(db, xpEventsSnap.docs)
+  // 3. Delete subcollections (chunked — Firestore batch limit is 500)
+  const [xpEventsSnap, unlockedBadgesSnap] = await Promise.all([
+    getDocs(collection(db, "users", uid, "xpEvents")),
+    getDocs(collection(db, "users", uid, "unlockedBadges")),
+  ])
+  await batchDeleteDocs(db, [...xpEventsSnap.docs, ...unlockedBadgesSnap.docs])
 
   // 4. Delete user profile, workouts, friend code in parallel
   await Promise.all([
