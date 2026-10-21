@@ -118,7 +118,8 @@ function YearPodium({ entries }: { entries: RankingEntry[] }) {
     <div className="space-y-4">
       <div className="flex items-end justify-center gap-3 pt-2 pb-1">
         {PODIUM_SLOTS.map(({ position, emoji, podiumHeight, avatarClass, blockColor }) => {
-          const entry = entries[position - 1] ?? null
+          const rawEntry = entries[position - 1] ?? null
+          const entry = rawEntry && rawEntry.count > 0 ? rawEntry : null
           return (
             <div key={position} className="flex flex-col items-center flex-1 min-w-0">
               {entry ? (
@@ -195,6 +196,7 @@ export function FriendRanking({
   const [loading, setLoading] = useState(true)
   const [showHistory, setShowHistory] = useState(false)
   const [showShop, setShowShop] = useState(false)
+  const [selectedHistoryYear, setSelectedHistoryYear] = useState<number>(() => new Date().getFullYear())
   const { xpAvailable } = useXp()
 
   // Serialize Set to stable string so the effect only re-runs when dates actually change
@@ -204,6 +206,8 @@ export function FriendRanking({
   )
 
   useEffect(() => {
+    let isMounted = true
+
     const now = new Date()
     const year = now.getFullYear()
     const month = now.getMonth() + 1
@@ -215,18 +219,22 @@ export function FriendRanking({
     const currentUserYearCount = currentDates.filter((d) => d.startsWith(yearPrefix)).length
 
     if (friendUids.length === 0) {
-      if (currentUserProfile) {
+      if (currentUserProfile && isMounted) {
         setMonthEntries([{ profile: currentUserProfile, count: currentUserMonthCount, isCurrentUser: true }])
         setYearEntries([{ profile: currentUserProfile, count: currentUserYearCount, isCurrentUser: true }])
         setAllProfiles(new Map([[currentUid, currentUserProfile]]))
         setAllWorkoutDates(new Map([[currentUid, currentDates]]))
       }
-      setLoading(false)
-      return
+      if (isMounted) setLoading(false)
+      return () => {
+        isMounted = false
+      }
     }
 
     Promise.all([fetchFriendProfiles(friendUids), fetchFriendWorkouts(friendUids)])
       .then(([profiles, workouts]) => {
+        if (!isMounted) return
+
         const enrichedProfiles = new Map(profiles)
         const enrichedWorkouts = new Map(workouts)
         if (currentUserProfile) {
@@ -260,25 +268,88 @@ export function FriendRanking({
         setMonthEntries([...currentEntry, ...friendMonthEntries].sort((a, b) => b.count - a.count))
         setYearEntries([...currentYearEntry, ...friendYearEntries].sort((a, b) => b.count - a.count))
       })
-      .catch((err) => console.error("Erro ao buscar ranking:", err))
-      .finally(() => setLoading(false))
+      .catch((err) => {
+        if (isMounted) {
+          console.error("Erro ao buscar ranking:", err)
+        }
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
   }, [currentUid, friendUids, currentUserProfile, workoutsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const now = new Date()
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() // 0-based
 
-  function getMonthTop3(month: number): RankingEntry[] {
-    const prefix = `${currentYear}-${String(month + 1).padStart(2, "0")}-`
-    const entries: RankingEntry[] = []
-    allWorkoutDates.forEach((dates, uid) => {
-      const profile = allProfiles.get(uid)
-      if (!profile) return
-      const count = dates.filter((d) => d.startsWith(prefix)).length
-      entries.push({ profile, count, isCurrentUser: uid === currentUid })
+  const availableYears = useMemo(() => {
+    const yearsSet = new Set<number>()
+    yearsSet.add(currentYear)
+    allWorkoutDates.forEach((dates) => {
+      dates.forEach((d) => {
+        if (typeof d === "string" && d.length >= 4) {
+          const y = Number.parseInt(d.slice(0, 4), 10)
+          if (!Number.isNaN(y) && y >= 2000 && y <= 2100) {
+            yearsSet.add(y)
+          }
+        }
+      })
     })
-    return entries.sort((a, b) => b.count - a.count).slice(0, 3)
-  }
+    return Array.from(yearsSet).sort((a, b) => b - a)
+  }, [allWorkoutDates, currentYear])
+
+  const getYearRankingFor = useMemo(() => {
+    return (targetYear: number): RankingEntry[] => {
+      const prefix = `${targetYear}-`
+      const entries: RankingEntry[] = []
+      allWorkoutDates.forEach((dates, uid) => {
+        const profile = allProfiles.get(uid)
+        if (!profile) return
+        const count = dates.filter((d) => d.startsWith(prefix)).length
+        entries.push({ profile, count, isCurrentUser: uid === currentUid })
+      })
+      return entries.sort((a, b) => b.count - a.count)
+    }
+  }, [allWorkoutDates, allProfiles, currentUid])
+
+  const getMonthTop3For = useMemo(() => {
+    return (month: number, targetYear: number): RankingEntry[] => {
+      const prefix = `${targetYear}-${String(month + 1).padStart(2, "0")}-`
+      const entries: RankingEntry[] = []
+      allWorkoutDates.forEach((dates, uid) => {
+        const profile = allProfiles.get(uid)
+        if (!profile) return
+        const count = dates.filter((d) => d.startsWith(prefix)).length
+        entries.push({ profile, count, isCurrentUser: uid === currentUid })
+      })
+      return entries.sort((a, b) => b.count - a.count).slice(0, 3)
+    }
+  }, [allWorkoutDates, allProfiles, currentUid])
+
+  const selectedYearPodiumEntries = useMemo(() => {
+    if (selectedHistoryYear >= currentYear) return []
+    return getYearRankingFor(selectedHistoryYear)
+  }, [selectedHistoryYear, currentYear, getYearRankingFor])
+
+  const selectedYearMonthsData = useMemo(() => {
+    const isCurrent = selectedHistoryYear === currentYear
+    const indices = isCurrent
+      ? Array.from({ length: currentMonth + 1 }, (_, i) => currentMonth - i)
+      : Array.from({ length: 12 }, (_, i) => 11 - i)
+
+    const list = indices.map((m) => {
+      const top3 = getMonthTop3For(m, selectedHistoryYear)
+      const hasWorkouts = top3.some((e) => e.count > 0)
+      const maxCount = top3[0]?.count ?? 0
+      return { month: m, top3, hasWorkouts, maxCount }
+    })
+
+    return isCurrent ? list : list.filter((item) => item.hasWorkouts)
+  }, [selectedHistoryYear, currentYear, currentMonth, getMonthTop3For])
 
   const monthLabel = `${MONTHS[currentMonth]} ${currentYear}`
   const yearLabel = `${currentYear}`
@@ -323,7 +394,10 @@ export function FriendRanking({
                 variant="ghost"
                 size="sm"
                 className="h-6 px-2 text-xs gap-1 text-muted-foreground"
-                onClick={() => setShowHistory(true)}
+                onClick={() => {
+                  setSelectedHistoryYear(currentYear)
+                  setShowHistory(true)
+                }}
               >
                 <CalendarDays className="h-3 w-3" />
                 Histórico
@@ -352,63 +426,118 @@ export function FriendRanking({
       />
 
       <Dialog open={showHistory} onOpenChange={setShowHistory}>
-        <DialogContent className="max-w-sm max-h-[80vh] overflow-y-auto overscroll-contain">
-          <DialogHeader>
+        <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto overscroll-contain">
+          <DialogHeader className="space-y-2">
             <DialogTitle className="flex items-center gap-2">
               <CalendarDays className="h-4 w-4" />
-              Histórico {currentYear}
+              Histórico de Rankings
             </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 pt-1">
-            {Array.from({ length: currentMonth + 1 }, (_, i) => currentMonth - i).map((m) => {
-              const top3 = getMonthTop3(m)
-              const hasWorkouts = top3.some((e) => e.count > 0)
-              const maxCount = top3[0]?.count ?? 0
-              return (
-                <div key={m} className="rounded-xl border bg-muted/30 overflow-hidden">
-                  <div className="px-3 py-2 border-b bg-muted/50">
-                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                      {MONTHS[m]}
-                    </p>
-                  </div>
-                  <div className="px-3 py-2">
-                    {!hasWorkouts ? (
-                      <p className="text-xs text-muted-foreground italic py-1">Sem treinos</p>
-                    ) : (
-                      <ol className="space-y-1.5">
-                        {top3.filter((e) => e.count > 0).map((entry, idx) => (
-                          <li
-                            key={entry.profile.uid}
-                            className={cn(
-                              "flex items-center gap-3 p-1.5 rounded-lg",
-                              entry.isCurrentUser && "bg-primary/10 border border-primary/20",
-                            )}
-                          >
-                            <span className="text-xs font-bold w-5 text-center text-muted-foreground">
-                              {getOrdinal(idx + 1)}
-                            </span>
-                            <Avatar className="h-7 w-7">
-                              <AvatarImage src={entry.profile.photoURL ?? undefined} alt={entry.profile.displayName} referrerPolicy="no-referrer" />
-                              <AvatarFallback className="text-xs">{getInitials(entry.profile.displayName)}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium truncate">
-                                {entry.isCurrentUser ? "Você" : entry.profile.displayName}
-                              </p>
-                              <Progress
-                                value={maxCount > 0 ? (entry.count / maxCount) * 100 : 0}
-                                className="h-1 mt-1"
-                              />
-                            </div>
-                            <span className="text-xs font-bold tabular-nums w-6 text-right">{entry.count}</span>
-                          </li>
-                        ))}
-                      </ol>
+            {availableYears.length > 1 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto pt-1 pb-0.5 no-scrollbar">
+                {availableYears.map((y) => (
+                  <Button
+                    key={y}
+                    type="button"
+                    variant={selectedHistoryYear === y ? "default" : "outline"}
+                    size="sm"
+                    className={cn(
+                      "h-7 text-xs px-2.5 rounded-full shrink-0 transition-colors",
+                      selectedHistoryYear === y && "font-semibold shadow-xs",
                     )}
-                  </div>
+                    onClick={() => setSelectedHistoryYear(y)}
+                  >
+                    {y} {y === currentYear ? "(Atual)" : ""}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </DialogHeader>
+
+          <div className="space-y-4 pt-1">
+            {/* Pódio Final para Anos Anteriores */}
+            {selectedHistoryYear < currentYear && (
+              <div className="space-y-2 rounded-xl border bg-muted/20 p-3">
+                <div className="flex items-center gap-1.5 justify-center">
+                  <Trophy className="h-3.5 w-3.5 text-amber-500" />
+                  <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                    Pódio Final {selectedHistoryYear}
+                  </p>
+                  <Trophy className="h-3.5 w-3.5 text-amber-500" />
                 </div>
-              )
-            })}
+                <YearPodium entries={selectedYearPodiumEntries} />
+              </div>
+            )}
+
+            {/* Lista dos Meses */}
+            <div className="space-y-3">
+              {selectedHistoryYear < currentYear && (
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
+                  Rankings Mensais {selectedHistoryYear}
+                </p>
+              )}
+
+              {selectedYearMonthsData.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic text-center py-4">
+                  Nenhum treino registrado em {selectedHistoryYear}
+                </p>
+              ) : (
+                selectedYearMonthsData.map(({ month: m, top3, hasWorkouts, maxCount }) => (
+                  <div key={m} className="rounded-xl border bg-muted/30 overflow-hidden">
+                    <div className="px-3 py-2 border-b bg-muted/50 flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        {MONTHS[m]}
+                        {selectedHistoryYear !== currentYear ? ` ${selectedHistoryYear}` : ""}
+                      </p>
+                    </div>
+                    <div className="px-3 py-2">
+                      {!hasWorkouts ? (
+                        <p className="text-xs text-muted-foreground italic py-1">Sem treinos</p>
+                      ) : (
+                        <ol className="space-y-1.5">
+                          {top3
+                            .filter((e) => e.count > 0)
+                            .map((entry, idx) => (
+                              <li
+                                key={entry.profile.uid}
+                                className={cn(
+                                  "flex items-center gap-3 p-1.5 rounded-lg",
+                                  entry.isCurrentUser && "bg-primary/10 border border-primary/20",
+                                )}
+                              >
+                                <span className="text-xs font-bold w-5 text-center text-muted-foreground">
+                                  {getOrdinal(idx + 1)}
+                                </span>
+                                <Avatar className="h-7 w-7">
+                                  <AvatarImage
+                                    src={entry.profile.photoURL ?? undefined}
+                                    alt={entry.profile.displayName}
+                                    referrerPolicy="no-referrer"
+                                  />
+                                  <AvatarFallback className="text-xs">
+                                    {getInitials(entry.profile.displayName)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium truncate">
+                                    {entry.isCurrentUser ? "Você" : entry.profile.displayName}
+                                  </p>
+                                  <Progress
+                                    value={maxCount > 0 ? (entry.count / maxCount) * 100 : 0}
+                                    className="h-1 mt-1"
+                                  />
+                                </div>
+                                <span className="text-xs font-bold tabular-nums w-6 text-right">
+                                  {entry.count}
+                                </span>
+                              </li>
+                            ))}
+                        </ol>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

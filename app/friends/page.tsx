@@ -32,11 +32,14 @@ export default function FriendsPage() {
       return
     }
 
+    let isMounted = true
+
     Promise.all([
       ensureUserProfile(user),
       getDoc(doc(getDb(), "workouts", user.uid)),
     ])
       .then(([p, workoutSnap]) => {
+        if (!isMounted) return
         setProfile(p)
         setFriendUids(p.friends)
         if (workoutSnap.exists()) {
@@ -44,10 +47,20 @@ export default function FriendsPage() {
         }
       })
       .catch((err) => {
-        console.error("Erro ao carregar perfil:", err)
-        setError("Não foi possível carregar o teu perfil. Tenta novamente.")
+        if (isMounted) {
+          console.error("Erro ao carregar perfil:", err)
+          setError("Não foi possível carregar o teu perfil. Tenta novamente.")
+        }
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (isMounted) {
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
   }, [user, authLoading, router])
 
   return (
