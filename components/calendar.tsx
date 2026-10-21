@@ -1,10 +1,12 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { ChevronLeft, ChevronRight, Dumbbell, Zap } from "lucide-react"
+import { useState, useEffect, useRef, useMemo } from "react"
+import { ChevronLeft, ChevronRight, ChevronDown, Dumbbell, Zap } from "lucide-react"
 import { doc, getDoc, updateDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible"
+import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { getDb } from "@/lib/firebase"
 import { useAuth } from "@/contexts/auth-context"
@@ -18,6 +20,18 @@ interface XpFlash {
   id: number
 }
 
+interface MonthCount {
+  monthName: string
+  monthIndex: number
+  count: number
+}
+
+interface YearSummary {
+  year: number
+  totalWorkouts: number
+  months: MonthCount[]
+}
+
 export function Calendar() {
   const { user } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -29,21 +43,36 @@ export function Calendar() {
   const currentYear = currentDate.getFullYear()
   const currentMonth = currentDate.getMonth()
 
-  // Load from Firestore on mount
+  // Load from Firestore on mount with unmount cancellation
   useEffect(() => {
     if (!user) return
+    let isMounted = true
     const docRef = doc(getDb(), "workouts", user.uid)
     getDoc(docRef)
       .then((snap) => {
-        if (snap.exists()) {
+        if (isMounted && snap.exists()) {
           const dates = snap.data().dates as string[]
           setSelectedDates(new Set(dates))
         }
       })
       .catch((err) => {
-        console.error("Erro ao carregar treinos:", err)
+        if (isMounted) {
+          console.error("Erro ao carregar treinos:", err)
+        }
       })
+    return () => {
+      isMounted = false
+    }
   }, [user])
+
+  // Cleanup XP flash timer on unmount
+  useEffect(() => {
+    return () => {
+      if (flashTimerRef.current) {
+        clearTimeout(flashTimerRef.current)
+      }
+    }
+  }, [])
 
   const daysInMonth = getDaysInMonth(currentYear, currentMonth)
   const firstDayOfMonth = getFirstDayOfMonth(currentYear, currentMonth)
@@ -109,25 +138,60 @@ export function Calendar() {
     return selectedDates.has(dateKey)
   }
 
-  // Calculate summary per month
-  const getMonthlySummary = () => {
-    const summary: { [key: string]: number } = {}
+  const todayYear = new Date().getFullYear()
+
+  // Partition workouts into current year and previous/other years
+  const { currentYearData, previousYearsData } = useMemo(() => {
+    const yearMap = new Map<number, Map<number, number>>()
 
     selectedDates.forEach((dateStr) => {
-      const [year, month] = dateStr.split("-")
-      const monthKey = `${MONTHS[Number.parseInt(month) - 1]} ${year}`
-      summary[monthKey] = (summary[monthKey] || 0) + 1
+      const parts = dateStr.split("-")
+      if (parts.length < 2) return
+      const y = Number.parseInt(parts[0], 10)
+      const m = Number.parseInt(parts[1], 10) - 1
+      if (Number.isNaN(y) || Number.isNaN(m) || m < 0 || m > 11) return
+
+      if (!yearMap.has(y)) {
+        yearMap.set(y, new Map())
+      }
+      const months = yearMap.get(y)!
+      months.set(m, (months.get(m) || 0) + 1)
     })
 
-    return Object.entries(summary).sort((a, b) => {
-      const [monthA, yearA] = a[0].split(" ")
-      const [monthB, yearB] = b[0].split(" ")
-      if (yearA !== yearB) return Number.parseInt(yearA) - Number.parseInt(yearB)
-      return MONTHS.indexOf(monthA) - MONTHS.indexOf(monthB)
-    })
-  }
+    const formatMonths = (monthsMap: Map<number, number>, year: number): MonthCount[] => {
+      return Array.from(monthsMap.entries())
+        .sort(([a], [b]) => b - a)
+        .map(([monthIndex, count]) => ({
+          monthName: `${MONTHS[monthIndex]} ${year}`,
+          monthIndex,
+          count,
+        }))
+    }
 
-  const monthlySummary = getMonthlySummary()
+    const currentMonthsMap = yearMap.get(todayYear) || new Map<number, number>()
+    const currentMonths = formatMonths(currentMonthsMap, todayYear)
+    const currentYearData: YearSummary = {
+      year: todayYear,
+      totalWorkouts: currentMonths.reduce((acc, m) => acc + m.count, 0),
+      months: currentMonths,
+    }
+
+    const previousYearsData: YearSummary[] = Array.from(yearMap.entries())
+      .filter(([y]) => y !== todayYear)
+      .sort(([y1], [y2]) => y2 - y1)
+      .map(([year, monthsMap]) => {
+        const months = formatMonths(monthsMap, year)
+        return {
+          year,
+          totalWorkouts: months.reduce((acc, m) => acc + m.count, 0),
+          months,
+        }
+      })
+
+    return { currentYearData, previousYearsData }
+  }, [selectedDates, todayYear])
+
+  const hasFutureYears = previousYearsData.some((y) => y.year > todayYear)
   const totalSelected = selectedDates.size
 
   // Generate calendar grid
@@ -209,10 +273,10 @@ export function Calendar() {
           <CardTitle className="text-lg">Resumo de Treinos</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Total */}
+          {/* Total do ano atual */}
           <div className="p-4 rounded-lg bg-primary text-primary-foreground">
-            <p className="text-sm opacity-90">Total de dias treinados</p>
-            <p className="text-3xl font-bold">{totalSelected}</p>
+            <p className="text-sm opacity-90">Total de dias treinados em {todayYear}</p>
+            <p className="text-3xl font-bold">{currentYearData.totalWorkouts}</p>
           </div>
 
           {/* XP disponível */}
@@ -239,27 +303,95 @@ export function Calendar() {
             </div>
           </div>
 
-          {/* Monthly breakdown */}
+          {/* Monthly breakdown for current year */}
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground mb-3">Treinos por mês</h3>
-            {monthlySummary.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">Nenhum treino registrado</p>
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">
+              Treinos em {todayYear}
+            </h3>
+            {currentYearData.months.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">
+                Nenhum treino registrado em {todayYear} ainda
+              </p>
             ) : (
               <ul className="space-y-2">
-                {monthlySummary.map(([month, count]) => (
-                  <li key={month} className="flex items-center justify-between p-2 rounded-md bg-muted">
-                    <span className="text-sm font-medium">{month}</span>
+                {currentYearData.months.map((m) => (
+                  <li
+                    key={m.monthIndex}
+                    className="flex items-center justify-between p-2 rounded-md bg-muted"
+                  >
+                    <span className="text-sm font-medium">{m.monthName}</span>
                     <span className="text-sm font-bold bg-background px-2 py-1 rounded">
-                      {count} {count === 1 ? "treino" : "treinos"}
+                      {m.count} {m.count === 1 ? "treino" : "treinos"}
                     </span>
                   </li>
                 ))}
               </ul>
             )}
           </div>
+
+          {/* Previous years collapsible section */}
+          {previousYearsData.length > 0 && (
+            <div className="pt-2">
+              <div className="flex items-center gap-2 my-4">
+                <Separator className="flex-1" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
+                  {hasFutureYears ? "Outros Anos" : "Anos Anteriores"}
+                </span>
+                <Separator className="flex-1" />
+              </div>
+              <div className="space-y-2">
+                {previousYearsData.map((yearData) => (
+                  <PreviousYearItem key={yearData.year} yearData={yearData} />
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
     </>
+  )
+}
+
+function PreviousYearItem({ yearData }: { yearData: YearSummary }) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-1">
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="flex w-full items-center justify-between p-2.5 rounded-lg bg-muted/60 hover:bg-muted transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          <div className="flex items-center gap-2">
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-muted-foreground transition-transform duration-200 shrink-0",
+                isOpen && "rotate-180",
+              )}
+            />
+            <span className="text-sm font-semibold">{yearData.year}</span>
+          </div>
+          <span className="text-xs font-semibold bg-background px-2 py-1 rounded border border-border/40">
+            {yearData.totalWorkouts} {yearData.totalWorkouts === 1 ? "treino" : "treinos"}
+          </span>
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-1">
+        <ul className="space-y-1.5 pl-3 border-l-2 border-border/50 ml-3 py-1">
+          {yearData.months.map((m) => (
+            <li
+              key={m.monthIndex}
+              className="flex items-center justify-between p-2 rounded-md bg-muted/40 hover:bg-muted/70 transition-colors"
+            >
+              <span className="text-sm font-medium text-muted-foreground">{m.monthName}</span>
+              <span className="text-sm font-bold bg-background text-foreground px-2 py-1 rounded">
+                {m.count} {m.count === 1 ? "treino" : "treinos"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
