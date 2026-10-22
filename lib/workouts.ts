@@ -39,6 +39,10 @@ function healExercise(ex: WorkoutExercise): WorkoutExercise {
       gifUrl: catalogEx.gifUrl,
       muscleLabel: catalogEx.muscleLabel,
       equipmentLabel: catalogEx.equipmentLabel,
+      instructions:
+        ex.instructions && ex.instructions.length > 0
+          ? ex.instructions
+          : catalogEx.instructions,
     }
   }
   return ex

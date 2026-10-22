@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import type { WorkoutExercise } from "@/lib/exercises/types"
+import { getExerciseById } from "@/lib/exercises/catalog"
 import { cn } from "@/lib/utils"
 
 interface WorkoutExerciseCardProps {
@@ -337,57 +338,78 @@ export function WorkoutExerciseCard({
 
       {/* Modal de Detalhes / GIF / Instruções */}
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
-        <DialogContent className="max-w-md p-5 space-y-4">
-          <DialogHeader>
-            <div className="flex items-center gap-2 mb-1">
-              <Badge variant="default">{exercise.muscleLabel}</Badge>
-              <Badge variant="outline">{exercise.equipmentLabel}</Badge>
-            </div>
-            <DialogTitle className="text-base sm:text-lg font-bold leading-snug">
-              {exercise.name}
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+          {(() => {
+            const catalogExercise = getExerciseById(exercise.catalogId)
+            const instructions =
+              exercise.instructions && exercise.instructions.length > 0
+                ? exercise.instructions
+                : catalogExercise?.instructions || []
+            const gifUrl = exercise.gifUrl || catalogExercise?.gifUrl
 
-          <div className="w-full h-56 rounded-xl border bg-black/5 dark:bg-white/5 flex items-center justify-center overflow-hidden">
-            <img
-              src={exercise.gifUrl}
-              alt={exercise.name}
-              className="w-full h-full object-contain"
-              loading="eager"
-            />
-          </div>
+            return (
+              <>
+                <DialogHeader>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="default">{exercise.muscleLabel}</Badge>
+                    <Badge variant="outline">{exercise.equipmentLabel}</Badge>
+                  </div>
+                  <DialogTitle className="text-base sm:text-lg font-bold leading-snug">
+                    {exercise.name}
+                  </DialogTitle>
+                </DialogHeader>
 
-          {exercise.instructions && exercise.instructions.length > 0 && (
-            <div className="space-y-2 pt-1">
-              <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Info className="h-3.5 w-3.5 text-primary" />
-                Instruções de Execução (PT-BR)
-              </h5>
-              <ol className="list-decimal list-inside space-y-1.5 text-xs text-muted-foreground leading-relaxed pl-1">
-                {exercise.instructions.map((ins, i) => (
-                  <li key={i}>{ins}</li>
-                ))}
-              </ol>
-            </div>
-          )}
+                <div className="w-full h-56 rounded-xl border bg-black/5 dark:bg-white/5 flex items-center justify-center overflow-hidden">
+                  {gifUrl ? (
+                    <img
+                      src={gifUrl}
+                      alt={exercise.name}
+                      className="w-full h-full object-contain"
+                      loading="eager"
+                    />
+                  ) : (
+                    <Dumbbell className="h-10 w-10 text-muted-foreground/60" />
+                  )}
+                </div>
 
-          <div className="flex items-center justify-between pt-3 border-t">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setShowDetails(false)
-                onStartRest(exercise.restSeconds)
-              }}
-              className="gap-1.5 text-xs"
-            >
-              <Timer className="h-3.5 w-3.5 text-primary" />
-              Descanso ({exercise.restSeconds}s)
-            </Button>
-            <Button size="sm" onClick={() => setShowDetails(false)}>
-              Fechar
-            </Button>
-          </div>
+                {instructions.length > 0 ? (
+                  <div className="space-y-2 pt-1">
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Info className="h-3.5 w-3.5 text-primary" />
+                      Instruções de Execução (PT-BR)
+                    </h5>
+                    <ol className="list-decimal list-inside space-y-1.5 text-xs text-muted-foreground leading-relaxed pl-1">
+                      {instructions.map((ins, i) => (
+                        <li key={i}>{ins}</li>
+                      ))}
+                    </ol>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic text-center py-2">
+                    Execute o movimento mantendo boa postura e controle de respiração.
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between pt-3 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowDetails(false)
+                      onStartRest(exercise.restSeconds)
+                    }}
+                    className="gap-1.5 text-xs"
+                  >
+                    <Timer className="h-3.5 w-3.5 text-primary" />
+                    Descanso ({exercise.restSeconds}s)
+                  </Button>
+                  <Button size="sm" onClick={() => setShowDetails(false)}>
+                    Fechar
+                  </Button>
+                </div>
+              </>
+            )
+          })()}
         </DialogContent>
       </Dialog>
     </>
