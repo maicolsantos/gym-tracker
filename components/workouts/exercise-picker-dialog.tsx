@@ -274,6 +274,12 @@ export function ExercisePickerDialog({
 
   const handleClose = (isOpen: boolean) => {
     if (!isOpen) {
+      // Se estiver na tela de detalhes/configuração do exercício, o botão "X" ou Escape
+      // tem a mesma função do "Voltar à busca", mantendo a lista de exercícios e seleções abertas
+      if (selectedExercise) {
+        setSelectedExercise(null)
+        return
+      }
       setSelectedExercise(null)
       setSelectedExercisesMap(new Map())
     }
