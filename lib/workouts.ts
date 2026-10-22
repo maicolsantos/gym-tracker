@@ -429,6 +429,25 @@ export async function getUserWorkoutPlans(uid: string): Promise<WorkoutPlan[]> {
   return plans
 }
 
+export function removeUndefinedFields<T>(val: T): T {
+  if (val === null || val === undefined) {
+    return val
+  }
+  if (Array.isArray(val)) {
+    return val.map(removeUndefinedFields) as unknown as T
+  }
+  if (typeof val === "object" && val !== null) {
+    const cleaned: Record<string, unknown> = {}
+    for (const [key, v] of Object.entries(val)) {
+      if (v !== undefined) {
+        cleaned[key] = removeUndefinedFields(v)
+      }
+    }
+    return cleaned as T
+  }
+  return val
+}
+
 export async function saveWorkoutPlan(uid: string, plan: WorkoutPlan): Promise<void> {
   const db = getDb()
   const now = new Date().toISOString()
@@ -437,7 +456,8 @@ export async function saveWorkoutPlan(uid: string, plan: WorkoutPlan): Promise<v
     updatedAt: now,
   }
 
-  await setDoc(doc(db, "users", uid, "workoutPlans", plan.id), planToSave)
+  const sanitized = removeUndefinedFields(planToSave)
+  await setDoc(doc(db, "users", uid, "workoutPlans", plan.id), sanitized)
 
   // Atualiza cache local
   const currentLocal = getLocalWorkoutPlans()

@@ -66,11 +66,16 @@ export function WorkoutPlanList({
 
   const handleSaveEdit = () => {
     if (!editTitle.trim()) return
-    onUpdatePlan({
+    const updated: WorkoutPlan = {
       ...activePlan,
       title: editTitle.trim(),
-      description: editDescription.trim() || undefined,
-    })
+    }
+    if (editDescription.trim()) {
+      updated.description = editDescription.trim()
+    } else {
+      delete updated.description
+    }
+    onUpdatePlan(updated)
     setIsEditDialogOpen(false)
     toast.success("Plano de treino atualizado com sucesso!")
   }
@@ -96,7 +101,7 @@ export function WorkoutPlanList({
     const newPlan: WorkoutPlan = {
       id: "plan-" + Date.now(),
       title: planTitle.trim(),
-      description: planDescription.trim() || undefined,
+      ...(planDescription.trim() ? { description: planDescription.trim() } : {}),
       isCurrent: true,
       days: initialDays,
       createdAt: now,

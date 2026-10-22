@@ -144,10 +144,10 @@ export function ExercisePickerDialog({
       thumbUrl: selectedExercise.thumbUrl,
       sets: Number(sets) || 3,
       reps: reps.trim() || "10",
-      weightKg: weightKg > 0 ? Number(weightKg) : undefined,
+      ...(weightKg > 0 ? { weightKg: Number(weightKg) } : {}),
       restSeconds: Number(restSeconds) || 60,
-      notes: notes.trim() || undefined,
-      instructions: selectedExercise.instructions,
+      ...(notes.trim() ? { notes: notes.trim() } : {}),
+      instructions: selectedExercise.instructions || [],
     }
 
     onAddExercise(workoutExercise)

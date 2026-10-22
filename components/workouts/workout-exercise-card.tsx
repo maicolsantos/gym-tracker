@@ -58,24 +58,36 @@ export function WorkoutExerciseCard({
   const [notes, setNotes] = useState(exercise.notes ?? "")
 
   const handleSaveEdit = () => {
-    onUpdate({
+    const updated: WorkoutExercise = {
       ...exercise,
       sets: Number(sets) || 1,
       reps: reps.trim() || "10",
-      weightKg: weightKg > 0 ? Number(weightKg) : undefined,
       restSeconds: Number(restSeconds) || 60,
-      notes: notes.trim() || undefined,
-    })
+    }
+    if (weightKg > 0) {
+      updated.weightKg = Number(weightKg)
+    } else {
+      delete updated.weightKg
+    }
+    if (notes.trim()) {
+      updated.notes = notes.trim()
+    } else {
+      delete updated.notes
+    }
+    onUpdate(updated)
     setIsEditing(false)
   }
 
   const handleQuickWeightAdjust = (delta: number) => {
     const current = exercise.weightKg ?? 0
     const newWeight = Math.max(0, current + delta)
-    onUpdate({
-      ...exercise,
-      weightKg: newWeight > 0 ? newWeight : undefined,
-    })
+    const updated = { ...exercise }
+    if (newWeight > 0) {
+      updated.weightKg = newWeight
+    } else {
+      delete updated.weightKg
+    }
+    onUpdate(updated)
   }
 
   const imageUrl = !imgError ? (exercise.thumbUrl || exercise.gifUrl) : null
