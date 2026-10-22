@@ -58,6 +58,10 @@ service cloud.firestore {
         allow read, write: if request.auth.uid == uid;
       }
 
+      match /workoutPlans/{planId} {
+        allow read, write: if request.auth.uid == uid;
+      }
+
       match /xpEvents/{eventKey} {
         allow read: if request.auth.uid == uid;
         // Only the owner can append — update is forbidden

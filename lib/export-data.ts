@@ -4,15 +4,17 @@ import { getDb } from "@/lib/firebase"
 export async function exportUserData(uid: string): Promise<void> {
   const db = getDb()
 
-  const [userSnap, workoutSnap, xpEventsSnap] = await Promise.all([
+  const [userSnap, workoutSnap, xpEventsSnap, workoutPlansSnap] = await Promise.all([
     getDoc(doc(db, "users", uid)),
     getDoc(doc(db, "workouts", uid)),
     getDocs(collection(db, "users", uid, "xpEvents")),
+    getDocs(collection(db, "users", uid, "workoutPlans")),
   ])
 
   const profile = userSnap.exists() ? userSnap.data() : {}
   const workoutDates: string[] = workoutSnap.exists() ? (workoutSnap.data().dates ?? []) : []
   const xpEvents = xpEventsSnap.docs.map((d) => d.data())
+  const workoutPlans = workoutPlansSnap.docs.map((d) => d.data())
 
   const payload = {
     exportedAt: new Date().toISOString(),
@@ -26,6 +28,7 @@ export async function exportUserData(uid: string): Promise<void> {
       createdAt: profile.createdAt?.toDate?.()?.toISOString() ?? null,
     },
     workoutDates,
+    workoutPlans,
     xpEvents: xpEvents.map((e) => ({
       eventKey: e.eventKey,
       type: e.type,

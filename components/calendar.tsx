@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useMemo } from "react"
+import Link from "next/link"
 import { ChevronLeft, ChevronRight, ChevronDown, Dumbbell, Zap } from "lucide-react"
 import { doc, getDoc, updateDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
@@ -14,6 +15,7 @@ import { MONTHS, WEEKDAYS, getDaysInMonth, getFirstDayOfMonth, formatDateKey } f
 import { awardWorkoutXp, reverseWorkoutXp } from "@/lib/xp"
 import { useXp } from "@/hooks/use-xp"
 import { XP_WORKOUT } from "@/lib/xp-config"
+import { getWorkoutLogs, type WorkoutLogEntry } from "@/lib/workouts"
 
 interface XpFlash {
   amount: number
@@ -193,6 +195,11 @@ export function Calendar() {
 
   const hasFutureYears = previousYearsData.some((y) => y.year > todayYear)
   const totalSelected = selectedDates.size
+  const [workoutLogs, setWorkoutLogs] = useState<Record<string, WorkoutLogEntry>>({})
+
+  useEffect(() => {
+    setWorkoutLogs(getWorkoutLogs())
+  }, [selectedDates])
 
   // Generate calendar grid
   const calendarDays = []
@@ -205,6 +212,8 @@ export function Calendar() {
   // Days of the month
   for (let day = 1; day <= daysInMonth; day++) {
     const selected = isSelected(day)
+    const dateKey = formatDateKey(currentYear, currentMonth, day)
+    const log = workoutLogs[dateKey]
     const isToday =
       new Date().getDate() === day && new Date().getMonth() === currentMonth && new Date().getFullYear() === currentYear
 
@@ -212,15 +221,19 @@ export function Calendar() {
       <button
         key={day}
         onClick={() => toggleDate(day)}
+        title={log ? `${log.dayName} (${log.planTitle})` : undefined}
         className={cn(
-          "h-10 w-10 rounded-full flex items-center justify-center text-sm font-medium transition-all",
+          "h-10 w-10 rounded-full flex flex-col items-center justify-center text-sm font-medium transition-all relative",
           "hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
           selected && "bg-primary text-primary-foreground hover:bg-primary/90",
           !selected && isToday && "border-2 border-primary",
           !selected && !isToday && "text-foreground",
         )}
       >
-        {day}
+        <span className={cn(selected && log && "leading-none text-xs font-bold")}>{day}</span>
+        {selected && log && (
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 absolute bottom-1" />
+        )}
       </button>,
     )
   }
@@ -231,10 +244,18 @@ export function Calendar() {
       {/* Calendar Card */}
       <Card className="lg:col-span-2">
         <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-2 mb-4">
-            <Dumbbell className="h-5 w-5" />
-            Tracker Ginásio
-          </CardTitle>
+          <div className="flex items-center justify-between mb-4">
+            <CardTitle className="flex items-center gap-2">
+              <Dumbbell className="h-5 w-5" />
+              Tracker Ginásio
+            </CardTitle>
+            <Button variant="outline" size="sm" asChild className="text-xs gap-1.5 h-8">
+              <Link href="/workouts">
+                <Dumbbell className="h-3.5 w-3.5 text-primary" />
+                Fichas de Treino
+              </Link>
+            </Button>
+          </div>
           <div className="flex items-center justify-center gap-2">
             <Button variant="outline" size="icon" onClick={handlePrevMonth}>
               <ChevronLeft className="h-4 w-4" />
