@@ -338,7 +338,10 @@ export function ExercisePickerDialog({
                       min={1}
                       max={20}
                       value={sets}
-                      onChange={(e) => setSets(Math.max(1, Number(e.target.value)))}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setSets(val === "" ? 1 : Math.max(1, Number(val)))
+                      }}
                       className="text-center font-bold text-sm h-9"
                     />
                     <Button
@@ -415,7 +418,10 @@ export function ExercisePickerDialog({
                     min={10}
                     step={5}
                     value={restSeconds}
-                    onChange={(e) => setRestSeconds(Math.max(10, Number(e.target.value)))}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setRestSeconds(val === "" ? 10 : Math.max(0, Number(val)))
+                    }}
                     className="text-center font-bold text-sm h-9"
                   />
                 </div>

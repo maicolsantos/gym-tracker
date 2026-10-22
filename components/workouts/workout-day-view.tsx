@@ -34,6 +34,7 @@ import { WorkoutExerciseCard } from "./workout-exercise-card"
 import { ExercisePickerDialog } from "./exercise-picker-dialog"
 import type { WorkoutPlan, WorkoutDay, WorkoutExercise } from "@/lib/exercises/types"
 import { saveWorkoutLog, getWorkoutLogs } from "@/lib/workouts"
+import { getTodayDateKey } from "@/lib/date-utils"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
@@ -64,7 +65,13 @@ export function WorkoutDayView({
   const [isWorkoutCompletedToday, setIsWorkoutCompletedToday] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
-  // Garante que se o dia selecionado for removido, seleciona o primeiro dia disponível
+  // Garante que se o dia selecionado for removido ou o plano mudar, seleciona um dia válido
+  useEffect(() => {
+    if (plan.days.length > 0 && !plan.days.some((d) => d.id === selectedDayId)) {
+      setSelectedDayId(plan.days[0].id)
+    }
+  }, [plan.id, plan.days, selectedDayId])
+
   const activeDayIndex = Math.max(
     0,
     plan.days.findIndex((d) => d.id === selectedDayId)
@@ -74,7 +81,7 @@ export function WorkoutDayView({
   // Checa se o treino de hoje já foi feito para este dia
   useEffect(() => {
     if (typeof window === "undefined" || !activeDay) return
-    const today = new Date().toISOString().slice(0, 10)
+    const today = getTodayDateKey()
     const logs = getWorkoutLogs()
     if (logs[today]?.dayId === activeDay.id) {
       setIsWorkoutCompletedToday(true)
@@ -222,7 +229,7 @@ export function WorkoutDayView({
 
   const handleLogWorkoutToday = () => {
     if (!activeDay) return
-    const today = new Date().toISOString().slice(0, 10)
+    const today = getTodayDateKey()
 
     saveWorkoutLog({
       date: today,

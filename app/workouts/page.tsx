@@ -1,37 +1,43 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Dumbbell, Sparkles, Timer, Flame, CalendarCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/contexts/auth-context"
-import {
-  getUserWorkoutPlans,
-  saveWorkoutPlan,
-  deleteWorkoutPlan,
-  setActiveWorkoutPlan,
-  getLocalWorkoutPlans,
-  saveLocalWorkoutPlans,
-  DEFAULT_WORKOUT_TEMPLATES,
-} from "@/lib/workouts"
-import type { WorkoutPlan } from "@/lib/exercises/types"
-import { WorkoutPlanList } from "@/components/workouts/workout-plan-list"
-import { WorkoutDayView } from "@/components/workouts/workout-day-view"
 import { RestTimer } from "@/components/workouts/rest-timer"
-import { doc, updateDoc, setDoc, arrayUnion } from "firebase/firestore"
+import { WorkoutDayView } from "@/components/workouts/workout-day-view"
+import { WorkoutPlanList } from "@/components/workouts/workout-plan-list"
+import { useAuth } from "@/contexts/auth-context"
+import type { WorkoutPlan } from "@/lib/exercises/types"
 import { getDb } from "@/lib/firebase"
+import {
+  deleteWorkoutPlan,
+  getUserWorkoutPlans,
+  isWorkoutBetaAllowed,
+  saveLocalWorkoutPlans,
+  saveWorkoutPlan,
+  setActiveWorkoutPlan
+} from "@/lib/workouts"
 import { awardWorkoutXp } from "@/lib/xp"
+import { arrayUnion, doc, setDoc, updateDoc } from "firebase/firestore"
+import { CalendarCheck, Dumbbell, Lock, Sparkles, Timer } from "lucide-react"
+import Link from "next/link"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
 export default function WorkoutsPage() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [plans, setPlans] = useState<WorkoutPlan[]>([])
   const [activePlanId, setActivePlanId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeRestSeconds, setActiveRestSeconds] = useState<number | null>(null)
   const [showRestTimer, setShowRestTimer] = useState(true)
 
-  // Carrega os planos do usuário
+  // Carrega os planos do usuário (apenas se for usuário beta autorizado)
   useEffect(() => {
+    if (authLoading) return
+    if (!isWorkoutBetaAllowed(user?.uid)) {
+      setLoading(false)
+      return
+    }
+
     let isMounted = true
 
     async function loadPlans() {
@@ -42,25 +48,6 @@ export default function WorkoutsPage() {
           if (isMounted) {
             setPlans(userPlans)
             const current = userPlans.find((p) => p.isCurrent) || userPlans[0]
-            setActivePlanId(current?.id ?? null)
-          }
-        } else {
-          // Usuário visitante / offline
-          let localPlans = getLocalWorkoutPlans()
-          if (localPlans.length === 0) {
-            const now = new Date().toISOString()
-            const initialPlan: WorkoutPlan = {
-              ...DEFAULT_WORKOUT_TEMPLATES[0],
-              id: "local-abc",
-              createdAt: now,
-              updatedAt: now,
-            }
-            localPlans = [initialPlan]
-            saveLocalWorkoutPlans(localPlans)
-          }
-          if (isMounted) {
-            setPlans(localPlans)
-            const current = localPlans.find((p) => p.isCurrent) || localPlans[0]
             setActivePlanId(current?.id ?? null)
           }
         }
@@ -79,7 +66,7 @@ export default function WorkoutsPage() {
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [user, authLoading])
 
   const activePlan = plans.find((p) => p.id === activePlanId) || plans[0]
 
@@ -106,6 +93,7 @@ export default function WorkoutsPage() {
     if (user) {
       try {
         await saveWorkoutPlan(user.uid, newPlan)
+        await setActiveWorkoutPlan(user.uid, newPlan.id)
       } catch (err) {
         console.error("Erro ao salvar novo plano no Firestore:", err)
         toast.error("Erro ao sincronizar com o banco de dados.")
@@ -139,13 +127,17 @@ export default function WorkoutsPage() {
     const updatedPlans = plans.filter((p) => p.id !== planId)
     setPlans(updatedPlans)
 
+    const nextActiveId = activePlanId === planId ? (updatedPlans[0]?.id ?? null) : activePlanId
     if (activePlanId === planId) {
-      setActivePlanId(updatedPlans[0]?.id ?? null)
+      setActivePlanId(nextActiveId)
     }
 
     if (user) {
       try {
         await deleteWorkoutPlan(user.uid, planId)
+        if (activePlanId === planId && nextActiveId) {
+          await setActiveWorkoutPlan(user.uid, nextActiveId)
+        }
         toast.success("Plano excluído.")
       } catch (err) {
         console.error("Erro ao excluir plano no Firestore:", err)
@@ -194,6 +186,37 @@ export default function WorkoutsPage() {
     }
   }
 
+  // Carregando autenticação
+  if (authLoading) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center p-4">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    )
+  }
+
+  // Se o usuário não estiver na lista de permissão do beta
+  if (!isWorkoutBetaAllowed(user?.uid)) {
+    return (
+      <div className="min-h-[75vh] flex items-center justify-center p-4">
+        <div className="max-w-md w-full rounded-2xl border bg-card p-6 text-center space-y-4 shadow-sm animate-in fade-in">
+          <div className="h-12 w-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto text-primary">
+            <Lock className="h-6 w-6" />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="text-lg font-bold text-foreground">Funcionalidade em Beta Fechado</h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              O gerenciador de Treinos está em fase restrita de testes para contas selecionadas.
+            </p>
+          </div>
+          <Button asChild size="sm" className="w-full">
+            <Link href="/">Voltar ao Início</Link>
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <main className="max-w-5xl mx-auto px-4 py-5 space-y-5">
@@ -202,7 +225,7 @@ export default function WorkoutsPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
               <Dumbbell className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-              Meus Treinos & Fichas
+              Meus Treinos
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
               Organize suas divisões e controle cargas, repetições e descanso.

@@ -15,6 +15,22 @@ const LOCAL_STORAGE_KEY = "gym-workout-plans"
 const LOCAL_STORAGE_ACTIVE_KEY = "gym-active-workout-plan-id"
 export const LOCAL_STORAGE_WORKOUT_LOGS = "gym-workout-logs-by-date"
 
+export function getWorkoutBetaAllowedUids(): Set<string> {
+  const envVal = process.env.NEXT_PUBLIC_WORKOUT_BETA_ALLOWED_UIDS || ""
+  return new Set(
+    envVal
+      .replace(/["']/g, "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+  )
+}
+
+export function isWorkoutBetaAllowed(uid?: string | null): boolean {
+  if (!uid) return false
+  return getWorkoutBetaAllowedUids().has(uid)
+}
+
 const ID_MIGRATIONS: Record<string, string> = {
   "pectorals/lever-pec-deck-fly": "pectorals/lever-seated-fly",
   "triceps/cable-rope-triceps-pushdown": "triceps/cable-pushdown-with-rope-attachment",

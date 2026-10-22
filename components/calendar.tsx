@@ -1,21 +1,21 @@
 "use client"
 
-import { useState, useEffect, useRef, useMemo } from "react"
-import Link from "next/link"
-import { ChevronLeft, ChevronRight, ChevronDown, Dumbbell, Zap } from "lucide-react"
-import { doc, getDoc, updateDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Separator } from "@/components/ui/separator"
-import { cn } from "@/lib/utils"
-import { getDb } from "@/lib/firebase"
 import { useAuth } from "@/contexts/auth-context"
-import { MONTHS, WEEKDAYS, getDaysInMonth, getFirstDayOfMonth, formatDateKey } from "@/lib/date-utils"
-import { awardWorkoutXp, reverseWorkoutXp } from "@/lib/xp"
 import { useXp } from "@/hooks/use-xp"
+import { MONTHS, WEEKDAYS, formatDateKey, getDaysInMonth, getFirstDayOfMonth } from "@/lib/date-utils"
+import { getDb } from "@/lib/firebase"
+import { cn } from "@/lib/utils"
+import { getWorkoutLogs, isWorkoutBetaAllowed, type WorkoutLogEntry } from "@/lib/workouts"
+import { awardWorkoutXp, reverseWorkoutXp } from "@/lib/xp"
 import { XP_WORKOUT } from "@/lib/xp-config"
-import { getWorkoutLogs, type WorkoutLogEntry } from "@/lib/workouts"
+import { arrayRemove, arrayUnion, doc, getDoc, setDoc, updateDoc } from "firebase/firestore"
+import { ChevronDown, ChevronLeft, ChevronRight, Dumbbell, Zap } from "lucide-react"
+import Link from "next/link"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 interface XpFlash {
   amount: number
@@ -240,136 +240,138 @@ export function Calendar() {
 
   return (
     <>
-    <div className="grid gap-6 lg:grid-cols-3">
-      {/* Calendar Card */}
-      <Card className="lg:col-span-2">
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between mb-4">
-            <CardTitle className="flex items-center gap-2">
-              <Dumbbell className="h-5 w-5" />
-              Tracker Ginásio
-            </CardTitle>
-            <Button variant="outline" size="sm" asChild className="text-xs gap-1.5 h-8">
-              <Link href="/workouts">
-                <Dumbbell className="h-3.5 w-3.5 text-primary" />
-                Fichas de Treino
-              </Link>
-            </Button>
-          </div>
-          <div className="flex items-center justify-center gap-2">
-            <Button variant="outline" size="icon" onClick={handlePrevMonth}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="min-w-[160px] text-center font-semibold">
-              {MONTHS[currentMonth]} {currentYear}
-            </span>
-            <Button variant="outline" size="icon" onClick={handleNextMonth}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Weekday headers */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {WEEKDAYS.map((day) => (
-              <div
-                key={day}
-                className="h-10 flex items-center justify-center text-sm font-medium text-muted-foreground"
-              >
-                {day}
-              </div>
-            ))}
-          </div>
-          {/* Calendar grid */}
-          <div className="grid grid-cols-7 gap-1">{calendarDays}</div>
-          <p className="text-sm text-muted-foreground mt-4 text-center">
-            Clique em uma data para marcar/desmarcar o treino
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Summary Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Resumo de Treinos</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Total do ano atual */}
-          <div className="p-4 rounded-lg bg-primary text-primary-foreground">
-            <p className="text-sm opacity-90">Total de dias treinados em {todayYear}</p>
-            <p className="text-3xl font-bold">{currentYearData.totalWorkouts}</p>
-          </div>
-
-          {/* XP disponível */}
-          <div className="relative p-3 rounded-lg bg-muted flex items-center justify-between overflow-hidden">
-            <div className="flex items-center gap-2">
-              <Zap className="h-4 w-4 text-yellow-500 shrink-0" />
-              <span className="text-sm font-medium">XP disponível</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {xpFlash && (
-                <span
-                  key={xpFlash.id}
-                  className={cn(
-                    "text-xs font-bold tabular-nums animate-xp-float",
-                    xpFlash.amount > 0 ? "text-green-500" : "text-red-500",
-                  )}
-                >
-                  {xpFlash.amount > 0 ? "+" : ""}{xpFlash.amount} XP
-                </span>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Calendar Card */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between mb-4">
+              <CardTitle className="flex items-center gap-2">
+                <Dumbbell className="h-5 w-5" />
+                Tracker Ginásio
+              </CardTitle>
+              {isWorkoutBetaAllowed(user?.uid) && (
+                <Button variant="outline" size="sm" asChild className="text-xs gap-1.5 h-8">
+                  <Link href="/workouts">
+                    <Dumbbell className="h-3.5 w-3.5 text-primary" />
+                    Ver Treino
+                  </Link>
+                </Button>
               )}
-              <span className="text-base font-bold tabular-nums">
-                {xpAvailable.toLocaleString("pt-BR")}
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <Button variant="outline" size="icon" onClick={handlePrevMonth}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="min-w-[160px] text-center font-semibold">
+                {MONTHS[currentMonth]} {currentYear}
               </span>
+              <Button variant="outline" size="icon" onClick={handleNextMonth}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-          </div>
+          </CardHeader>
+          <CardContent>
+            {/* Weekday headers */}
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {WEEKDAYS.map((day) => (
+                <div
+                  key={day}
+                  className="h-10 flex items-center justify-center text-sm font-medium text-muted-foreground"
+                >
+                  {day}
+                </div>
+              ))}
+            </div>
+            {/* Calendar grid */}
+            <div className="grid grid-cols-7 gap-1">{calendarDays}</div>
+            <p className="text-sm text-muted-foreground mt-4 text-center">
+              Clique em uma data para marcar/desmarcar o treino
+            </p>
+          </CardContent>
+        </Card>
 
-          {/* Monthly breakdown for current year */}
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground mb-3">
-              Treinos em {todayYear}
-            </h3>
-            {currentYearData.months.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">
-                Nenhum treino registrado em {todayYear} ainda
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {currentYearData.months.map((m) => (
-                  <li
-                    key={m.monthIndex}
-                    className="flex items-center justify-between p-2 rounded-md bg-muted"
+        {/* Summary Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Resumo de Treinos</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Total do ano atual */}
+            <div className="p-4 rounded-lg bg-primary text-primary-foreground">
+              <p className="text-sm opacity-90">Total de dias treinados em {todayYear}</p>
+              <p className="text-3xl font-bold">{currentYearData.totalWorkouts}</p>
+            </div>
+
+            {/* XP disponível */}
+            <div className="relative p-3 rounded-lg bg-muted flex items-center justify-between overflow-hidden">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-yellow-500 shrink-0" />
+                <span className="text-sm font-medium">XP disponível</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {xpFlash && (
+                  <span
+                    key={xpFlash.id}
+                    className={cn(
+                      "text-xs font-bold tabular-nums animate-xp-float",
+                      xpFlash.amount > 0 ? "text-green-500" : "text-red-500",
+                    )}
                   >
-                    <span className="text-sm font-medium">{m.monthName}</span>
-                    <span className="text-sm font-bold bg-background px-2 py-1 rounded">
-                      {m.count} {m.count === 1 ? "treino" : "treinos"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Previous years collapsible section */}
-          {previousYearsData.length > 0 && (
-            <div className="pt-2">
-              <div className="flex items-center gap-2 my-4">
-                <Separator className="flex-1" />
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
-                  {hasFutureYears ? "Outros Anos" : "Anos Anteriores"}
+                    {xpFlash.amount > 0 ? "+" : ""}{xpFlash.amount} XP
+                  </span>
+                )}
+                <span className="text-base font-bold tabular-nums">
+                  {xpAvailable.toLocaleString("pt-BR")}
                 </span>
-                <Separator className="flex-1" />
-              </div>
-              <div className="space-y-2">
-                {previousYearsData.map((yearData) => (
-                  <PreviousYearItem key={yearData.year} yearData={yearData} />
-                ))}
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+
+            {/* Monthly breakdown for current year */}
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                Treinos em {todayYear}
+              </h3>
+              {currentYearData.months.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">
+                  Nenhum treino registrado em {todayYear} ainda
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {currentYearData.months.map((m) => (
+                    <li
+                      key={m.monthIndex}
+                      className="flex items-center justify-between p-2 rounded-md bg-muted"
+                    >
+                      <span className="text-sm font-medium">{m.monthName}</span>
+                      <span className="text-sm font-bold bg-background px-2 py-1 rounded">
+                        {m.count} {m.count === 1 ? "treino" : "treinos"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Previous years collapsible section */}
+            {previousYearsData.length > 0 && (
+              <div className="pt-2">
+                <div className="flex items-center gap-2 my-4">
+                  <Separator className="flex-1" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
+                    {hasFutureYears ? "Outros Anos" : "Anos Anteriores"}
+                  </span>
+                  <Separator className="flex-1" />
+                </div>
+                <div className="space-y-2">
+                  {previousYearsData.map((yearData) => (
+                    <PreviousYearItem key={yearData.year} yearData={yearData} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </>
   )
 }
