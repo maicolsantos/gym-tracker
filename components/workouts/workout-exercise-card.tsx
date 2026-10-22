@@ -1,29 +1,28 @@
 "use client"
 
-import { useState } from "react"
-import {
-  ChevronUp,
-  ChevronDown,
-  Trash2,
-  Timer,
-  Info,
-  Edit2,
-  Check,
-  Dumbbell,
-  Play,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import type { WorkoutExercise } from "@/lib/exercises/types"
+import { Input } from "@/components/ui/input"
 import { getExerciseById } from "@/lib/exercises/catalog"
-import { cn } from "@/lib/utils"
+import type { WorkoutExercise } from "@/lib/exercises/types"
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Dumbbell,
+  Edit2,
+  Info,
+  Play,
+  Timer,
+  Trash2,
+} from "lucide-react"
+import { useState } from "react"
 
 interface WorkoutExerciseCardProps {
   exercise: WorkoutExercise
@@ -276,13 +275,35 @@ export function WorkoutExerciseCard({
                 <label className="text-[10px] font-semibold text-muted-foreground block mb-0.5">
                   Séries
                 </label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={sets}
-                  onChange={(e) => setSets(Number(e.target.value))}
-                  className="h-8 text-xs text-center font-bold"
-                />
+                <div className="flex items-center border border-input rounded-md bg-transparent dark:bg-input/30 h-8 overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:border-ring">
+                  <button
+                    type="button"
+                    onClick={() => setSets((prev) => Math.max(1, prev - 1))}
+                    className="h-full w-7 shrink-0 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors font-bold text-sm select-none cursor-pointer"
+                    title="Diminuir séries"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={sets}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setSets(val === "" ? 1 : Math.max(1, Number(val)))
+                    }}
+                    className="h-full w-full min-w-0 text-center font-bold text-xs bg-transparent border-0 outline-none px-0.5 text-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSets((prev) => prev + 1)}
+                    className="h-full w-7 shrink-0 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors font-bold text-sm select-none cursor-pointer"
+                    title="Aumentar séries"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -300,14 +321,35 @@ export function WorkoutExerciseCard({
                 <label className="text-[10px] font-semibold text-muted-foreground block mb-0.5">
                   Carga (kg)
                 </label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={weightKg === 0 ? "" : weightKg}
-                  placeholder="0"
-                  onChange={(e) => setWeightKg(Number(e.target.value))}
-                  className="h-8 text-xs text-center font-bold"
-                />
+                <div className="flex items-center border border-input rounded-md bg-transparent dark:bg-input/30 h-8 overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:border-ring">
+                  <button
+                    type="button"
+                    onClick={() => setWeightKg((prev) => Math.max(0, prev - 2))}
+                    className="h-full w-7 shrink-0 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors font-bold text-sm select-none cursor-pointer"
+                    title="Diminuir carga (-2kg)"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={weightKg}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setWeightKg(val === "" ? 0 : Math.max(0, Number(val)))
+                    }}
+                    className="h-full w-full min-w-0 text-center font-bold text-xs bg-transparent border-0 outline-none px-0.5 text-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setWeightKg((prev) => prev + 2)}
+                    className="h-full w-7 shrink-0 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors font-bold text-sm select-none cursor-pointer"
+                    title="Aumentar carga (+2kg)"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -318,8 +360,11 @@ export function WorkoutExerciseCard({
                   type="number"
                   min={5}
                   value={restSeconds}
-                  onChange={(e) => setRestSeconds(Number(e.target.value))}
-                  className="h-8 text-xs text-center font-bold"
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setRestSeconds(val === "" ? 10 : Math.max(0, Number(val)))
+                  }}
+                  className="h-8 text-xs text-center font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
             </div>
@@ -388,7 +433,7 @@ export function WorkoutExerciseCard({
                   <div className="space-y-2 pt-1">
                     <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       <Info className="h-3.5 w-3.5 text-primary" />
-                      Instruções de Execução (PT-BR)
+                      Instruções de Execução
                     </h5>
                     <ol className="list-decimal list-inside space-y-1.5 text-xs text-muted-foreground leading-relaxed pl-1">
                       {instructions.map((ins, i) => (

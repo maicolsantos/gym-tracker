@@ -240,7 +240,7 @@ export function Calendar() {
 
   return (
     <>
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-3 items-start">
         {/* Calendar Card */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-4">

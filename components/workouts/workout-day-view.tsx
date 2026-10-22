@@ -172,17 +172,21 @@ export function WorkoutDayView({
     toast.success("Dia de treino removido.")
   }
 
-  const handleAddExerciseToActiveDay = (exercise: WorkoutExercise) => {
-    if (!activeDay) return
+  const handleAddExercisesToActiveDay = (newExercises: WorkoutExercise[]) => {
+    if (!activeDay || newExercises.length === 0) return
 
     const updatedDays = plan.days.map((d) =>
       d.id === activeDay.id
-        ? { ...d, exercises: [...d.exercises, exercise] }
+        ? { ...d, exercises: [...d.exercises, ...newExercises] }
         : d
     )
 
     onUpdatePlan({ ...plan, days: updatedDays })
-    toast.success(`${exercise.name} adicionado ao treino!`)
+    toast.success(
+      newExercises.length === 1
+        ? `${newExercises[0].name} adicionado ao treino!`
+        : `${newExercises.length} exercícios adicionados ao treino!`
+    )
   }
 
   const handleUpdateExercise = (exerciseIndex: number, updatedExercise: WorkoutExercise) => {
@@ -493,7 +497,9 @@ export function WorkoutDayView({
       <ExercisePickerDialog
         open={isPickerOpen}
         onOpenChange={setIsPickerOpen}
-        onAddExercise={handleAddExerciseToActiveDay}
+        onAddExercise={(ex) => handleAddExercisesToActiveDay([ex])}
+        onAddExercises={handleAddExercisesToActiveDay}
+        existingCatalogIds={activeDay.exercises.map((e) => e.catalogId)}
         dayName={activeDay.name}
       />
 

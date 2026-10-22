@@ -20,60 +20,122 @@ import { cn } from "@/lib/utils"
 interface ExercisePickerDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onAddExercise: (exercise: WorkoutExercise) => void
+  onAddExercise?: (exercise: WorkoutExercise) => void
+  onAddExercises?: (exercises: WorkoutExercise[]) => void
+  existingCatalogIds?: string[]
   dayName?: string
 }
 
 interface PickerItemProps {
   exercise: CatalogExercise
-  onSelect: (exercise: CatalogExercise) => void
+  isAlreadyInWorkout: boolean
+  isSelected: boolean
+  onToggleSelect: (exercise: CatalogExercise) => void
+  onConfigure: (exercise: CatalogExercise) => void
 }
 
-function PickerExerciseItem({ exercise, onSelect }: PickerItemProps) {
+function PickerExerciseItem({
+  exercise,
+  isAlreadyInWorkout,
+  isSelected,
+  onToggleSelect,
+  onConfigure,
+}: PickerItemProps) {
   const [imgError, setImgError] = useState(false)
   const imageSrc = !imgError ? (exercise.thumbUrl || exercise.gifUrl) : null
 
   return (
     <div
-      onClick={() => onSelect(exercise)}
-      className="group flex items-center gap-3 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-accent/40 cursor-pointer transition-all text-left"
+      onClick={() => onToggleSelect(exercise)}
+      className={cn(
+        "group flex items-center gap-2.5 p-2.5 rounded-xl border transition-all text-left cursor-pointer relative",
+        // Já no treino: borda da cor do botão primário!
+        isAlreadyInWorkout && !isSelected && "border-primary bg-primary/5 hover:border-primary ring-1 ring-primary/30",
+        // Selecionado para adicionar agora
+        isSelected && "border-primary bg-primary/10 ring-2 ring-primary shadow-sm",
+        // Padrão
+        !isAlreadyInWorkout && !isSelected && "border-border/60 hover:border-primary/50 hover:bg-accent/40"
+      )}
     >
-      {/* Miniatura WebP com Fallback */}
-      <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-md bg-muted flex items-center justify-center shrink-0 overflow-hidden relative border">
+      {/* Miniatura WebP com Fallback e atalho de visualização */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onConfigure(exercise)
+        }}
+        className="h-12 w-12 sm:h-14 sm:w-14 rounded-lg bg-muted flex items-center justify-center shrink-0 overflow-hidden relative border group/thumb cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
+        title="Ver animação e instruções"
+      >
         {imageSrc ? (
           <img
             src={imageSrc}
             alt={exercise.name}
-            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="h-full w-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
             loading="lazy"
             onError={() => setImgError(true)}
           />
         ) : (
           <Dumbbell className="h-5 w-5 text-muted-foreground/60" />
         )}
-      </div>
+        <div className="absolute inset-0 bg-black/35 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
+          <Info className="h-3.5 w-3.5 text-white" />
+        </div>
+      </button>
 
       <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+          <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20 leading-tight">
+            {exercise.muscleLabel}
+          </span>
+          {isAlreadyInWorkout && (
+            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-primary text-primary-foreground leading-tight">
+              ✓ No treino
+            </span>
+          )}
+        </div>
+
         <h4 className="text-xs sm:text-sm font-semibold truncate leading-tight group-hover:text-primary transition-colors">
           {exercise.name}
         </h4>
-        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-          <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20 leading-tight">
-            {exercise.muscleLabel}
-          </span>
-          <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-muted text-muted-foreground leading-tight">
-            {exercise.equipmentLabel}
-          </span>
-        </div>
+        <span className="text-[10px] text-muted-foreground mt-0.5 block truncate">
+          {exercise.equipmentLabel}
+        </span>
       </div>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 rounded-full"
-      >
-        <Plus className="h-4 w-4" />
-      </Button>
+      {/* Botões de Ação na Direita */}
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onConfigure(exercise)
+          }}
+          className="h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 flex items-center justify-center transition-colors"
+          title="Ver detalhes e instruções"
+        >
+          <Info className="h-3.5 w-3.5" />
+        </button>
+
+        <div
+          className={cn(
+            "h-7 w-7 rounded-full flex items-center justify-center border transition-all",
+            isSelected
+              ? "bg-primary text-primary-foreground border-primary shadow-xs"
+              : isAlreadyInWorkout
+              ? "bg-primary/20 text-primary border-primary/50"
+              : "bg-muted text-muted-foreground border-border/80 group-hover:border-primary group-hover:text-primary"
+          )}
+        >
+          {isSelected ? (
+            <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+          ) : isAlreadyInWorkout ? (
+            <Check className="h-3.5 w-3.5 stroke-[2]" />
+          ) : (
+            <Plus className="h-3.5 w-3.5" />
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -82,11 +144,16 @@ export function ExercisePickerDialog({
   open,
   onOpenChange,
   onAddExercise,
+  onAddExercises,
+  existingCatalogIds,
   dayName,
 }: ExercisePickerDialogProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null)
   const [selectedExercise, setSelectedExercise] = useState<CatalogExercise | null>(null)
+  const [selectedExercisesMap, setSelectedExercisesMap] = useState<Map<string, CatalogExercise>>(new Map())
+
+  const existingSet = useMemo(() => new Set(existingCatalogIds || []), [existingCatalogIds])
 
   // Campos de configuração do exercício selecionado
   const [sets, setSets] = useState(3)
@@ -121,6 +188,51 @@ export function ExercisePickerDialog({
     }).slice(0, 40) // Limita a 40 para renderização ultra-rápida no modal
   }, [searchQuery, selectedMuscle])
 
+  const handleToggleSelect = (exercise: CatalogExercise) => {
+    setSelectedExercisesMap((prev) => {
+      const next = new Map(prev)
+      if (next.has(exercise.id)) {
+        next.delete(exercise.id)
+      } else {
+        next.set(exercise.id, exercise)
+      }
+      return next
+    })
+  }
+
+  const handleClearSelection = () => {
+    setSelectedExercisesMap(new Map())
+  }
+
+  const handleConfirmBulkAdd = () => {
+    const list = Array.from(selectedExercisesMap.values())
+    if (list.length === 0) return
+
+    const workoutExercises: WorkoutExercise[] = list.map((catEx, idx) => ({
+      id: "ex-" + Date.now() + "-" + idx + "-" + Math.random().toString(36).slice(2, 6),
+      catalogId: catEx.id,
+      name: catEx.name,
+      muscleLabel: catEx.muscleLabel,
+      equipmentLabel: catEx.equipmentLabel,
+      gifUrl: catEx.gifUrl,
+      ...(catEx.thumbUrl ? { thumbUrl: catEx.thumbUrl } : {}),
+      sets: 3,
+      reps: "10-12",
+      restSeconds: 60,
+      instructions: catEx.instructions || [],
+    }))
+
+    if (onAddExercises) {
+      onAddExercises(workoutExercises)
+    } else if (onAddExercise) {
+      workoutExercises.forEach(onAddExercise)
+    }
+
+    setSelectedExercisesMap(new Map())
+    setSelectedExercise(null)
+    onOpenChange(false)
+  }
+
   const handleSelectExercise = (exercise: CatalogExercise) => {
     setSelectedExercise(exercise)
     // Valores padrão inteligentes
@@ -141,7 +253,7 @@ export function ExercisePickerDialog({
       muscleLabel: selectedExercise.muscleLabel,
       equipmentLabel: selectedExercise.equipmentLabel,
       gifUrl: selectedExercise.gifUrl,
-      thumbUrl: selectedExercise.thumbUrl,
+      ...(selectedExercise.thumbUrl ? { thumbUrl: selectedExercise.thumbUrl } : {}),
       sets: Number(sets) || 3,
       reps: reps.trim() || "10",
       ...(weightKg > 0 ? { weightKg: Number(weightKg) } : {}),
@@ -150,14 +262,22 @@ export function ExercisePickerDialog({
       instructions: selectedExercise.instructions || [],
     }
 
-    onAddExercise(workoutExercise)
+    if (onAddExercises) {
+      onAddExercises([workoutExercise])
+    } else if (onAddExercise) {
+      onAddExercise(workoutExercise)
+    }
     setSelectedExercise(null)
+    setSelectedExercisesMap(new Map())
     onOpenChange(false)
   }
 
-  const handleClose = () => {
-    setSelectedExercise(null)
-    onOpenChange(false)
+  const handleClose = (isOpen: boolean) => {
+    if (!isOpen) {
+      setSelectedExercise(null)
+      setSelectedExercisesMap(new Map())
+    }
+    onOpenChange(isOpen)
   }
 
   return (
@@ -253,12 +373,42 @@ export function ExercisePickerDialog({
                     <PickerExerciseItem
                       key={ex.id}
                       exercise={ex}
-                      onSelect={handleSelectExercise}
+                      isAlreadyInWorkout={existingSet.has(ex.id)}
+                      isSelected={selectedExercisesMap.has(ex.id)}
+                      onToggleSelect={handleToggleSelect}
+                      onConfigure={handleSelectExercise}
                     />
                   ))}
                 </div>
               )}
             </div>
+
+            {/* Rodapé Fixo para Adição Múltipla */}
+            {selectedExercisesMap.size > 0 && (
+              <div className="p-3 sm:p-4 border-t bg-card/95 backdrop-blur-sm flex items-center justify-between gap-3 shadow-lg shrink-0 animate-in slide-in-from-bottom-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant="default" className="text-xs px-2.5 py-0.5 font-bold shadow-xs">
+                    {selectedExercisesMap.size} selecionado{selectedExercisesMap.size > 1 ? "s" : ""}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearSelection}
+                    className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground"
+                  >
+                    Limpar
+                  </Button>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleConfirmBulkAdd}
+                  className="gap-1.5 font-bold text-xs h-9 px-4 shadow-sm"
+                >
+                  <Plus className="h-4 w-4" />
+                  Adicionar {selectedExercisesMap.size > 1 ? `os ${selectedExercisesMap.size} ao Treino` : "ao Treino"}
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
