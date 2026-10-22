@@ -322,17 +322,16 @@ export function ExercisePickerDialog({
                   <Label htmlFor="sets" className="text-xs font-semibold">
                     Séries
                   </Label>
-                  <div className="flex items-center gap-1">
-                    <Button
+                  <div className="flex items-center border border-input rounded-md bg-transparent dark:bg-input/30 h-9 overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:border-ring">
+                    <button
                       type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9 shrink-0"
                       onClick={() => setSets((prev) => Math.max(1, prev - 1))}
+                      className="h-full w-8 shrink-0 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors font-bold text-base select-none cursor-pointer"
+                      title="Diminuir séries"
                     >
-                      -
-                    </Button>
-                    <Input
+                      −
+                    </button>
+                    <input
                       id="sets"
                       type="number"
                       min={1}
@@ -342,17 +341,16 @@ export function ExercisePickerDialog({
                         const val = e.target.value
                         setSets(val === "" ? 1 : Math.max(1, Number(val)))
                       }}
-                      className="text-center font-bold text-sm h-9"
+                      className="h-full w-full min-w-0 text-center font-bold text-sm bg-transparent border-0 outline-none px-0.5 text-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                    <Button
+                    <button
                       type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9 shrink-0"
                       onClick={() => setSets((prev) => prev + 1)}
+                      className="h-full w-8 shrink-0 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors font-bold text-base select-none cursor-pointer"
+                      title="Aumentar séries"
                     >
                       +
-                    </Button>
+                    </button>
                   </div>
                 </div>
 
@@ -375,35 +373,35 @@ export function ExercisePickerDialog({
                   <Label htmlFor="weight" className="text-xs font-semibold">
                     Carga (kg)
                   </Label>
-                  <div className="flex items-center gap-1">
-                    <Button
+                  <div className="flex items-center border border-input rounded-md bg-transparent dark:bg-input/30 h-9 overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:border-ring">
+                    <button
                       type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9 shrink-0"
                       onClick={() => setWeightKg((prev) => Math.max(0, prev - 2))}
+                      className="h-full w-8 shrink-0 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors font-bold text-base select-none cursor-pointer"
+                      title="Diminuir carga (-2kg)"
                     >
-                      -
-                    </Button>
-                    <Input
+                      −
+                    </button>
+                    <input
                       id="weight"
                       type="number"
                       min={0}
                       step={1}
-                      value={weightKg === 0 ? "" : weightKg}
-                      placeholder="0"
-                      onChange={(e) => setWeightKg(Math.max(0, Number(e.target.value)))}
-                      className="text-center font-bold text-sm h-9"
+                      value={weightKg}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setWeightKg(val === "" ? 0 : Math.max(0, Number(val)))
+                      }}
+                      className="h-full w-full min-w-0 text-center font-bold text-sm bg-transparent border-0 outline-none px-0.5 text-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                    <Button
+                    <button
                       type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9 shrink-0"
                       onClick={() => setWeightKg((prev) => prev + 2)}
+                      className="h-full w-8 shrink-0 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors font-bold text-base select-none cursor-pointer"
+                      title="Aumentar carga (+2kg)"
                     >
                       +
-                    </Button>
+                    </button>
                   </div>
                 </div>
 
@@ -422,7 +420,7 @@ export function ExercisePickerDialog({
                       const val = e.target.value
                       setRestSeconds(val === "" ? 10 : Math.max(0, Number(val)))
                     }}
-                    className="text-center font-bold text-sm h-9"
+                    className="text-center font-bold text-sm h-9 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
               </div>
