@@ -13,7 +13,6 @@ import {
   getWorkoutLogs,
   removeWorkoutLog,
   clearActiveWorkoutSession,
-  isWorkoutBetaAllowed,
   type WorkoutLogEntry,
 } from "@/lib/workouts"
 import { awardWorkoutXp, reverseWorkoutXp } from "@/lib/xp"
@@ -293,14 +292,12 @@ export function Calendar() {
                 <Dumbbell className="h-5 w-5" />
                 Tracker Ginásio
               </CardTitle>
-              {isWorkoutBetaAllowed(user?.uid) && (
-                <Button variant="outline" size="sm" asChild className="text-xs gap-1.5 h-8">
-                  <Link href="/workouts">
-                    <Dumbbell className="h-3.5 w-3.5 text-primary" />
-                    Ver Treino
-                  </Link>
-                </Button>
-              )}
+              <Button variant="outline" size="sm" asChild className="text-xs gap-1.5 h-8">
+                <Link href="/workouts">
+                  <Dumbbell className="h-3.5 w-3.5 text-primary" />
+                  Ver Treino
+                </Link>
+              </Button>
             </div>
             <div className="flex items-center justify-center gap-2">
               <Button variant="outline" size="icon" onClick={handlePrevMonth}>

@@ -10,7 +10,6 @@ import { getDb } from "@/lib/firebase"
 import {
   deleteWorkoutPlan,
   getUserWorkoutPlans,
-  isWorkoutBetaAllowed,
   saveLocalWorkoutPlans,
   saveWorkoutPlan,
   setActiveWorkoutPlan,
@@ -18,24 +17,26 @@ import {
 } from "@/lib/workouts"
 import { awardWorkoutXp } from "@/lib/xp"
 import { arrayUnion, doc, getDoc, setDoc, updateDoc } from "firebase/firestore"
-import { CalendarCheck, Dumbbell, Lock, Sparkles, Timer } from "lucide-react"
+import { CalendarCheck, Dumbbell, Sparkles, Timer } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
 export default function WorkoutsPage() {
   const { user, loading: authLoading } = useAuth()
+  const router = useRouter()
   const [plans, setPlans] = useState<WorkoutPlan[]>([])
   const [activePlanId, setActivePlanId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeRestSeconds, setActiveRestSeconds] = useState<number | null>(null)
   const [showRestTimer, setShowRestTimer] = useState(false)
 
-  // Carrega os planos do usuário (apenas se for usuário beta autorizado)
+  // Carrega os planos do usuário
   useEffect(() => {
     if (authLoading) return
-    if (!isWorkoutBetaAllowed(user?.uid)) {
-      setLoading(false)
+    if (!user) {
+      router.replace("/")
       return
     }
 
@@ -67,7 +68,7 @@ export default function WorkoutsPage() {
     return () => {
       isMounted = false
     }
-  }, [user, authLoading])
+  }, [user, authLoading, router])
 
   const activePlan = plans.find((p) => p.id === activePlanId) || plans[0]
 
@@ -198,33 +199,11 @@ export default function WorkoutsPage() {
     }
   }
 
-  // Carregando autenticação
-  if (authLoading) {
+  // Carregando autenticação ou aguardando redirecionamento
+  if (authLoading || !user) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4">
         <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    )
-  }
-
-  // Se o usuário não estiver na lista de permissão do beta
-  if (!isWorkoutBetaAllowed(user?.uid)) {
-    return (
-      <div className="min-h-[75vh] flex items-center justify-center p-4">
-        <div className="max-w-md w-full rounded-2xl border bg-card p-6 text-center space-y-4 shadow-sm animate-in fade-in">
-          <div className="h-12 w-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto text-primary">
-            <Lock className="h-6 w-6" />
-          </div>
-          <div className="space-y-1.5">
-            <h2 className="text-lg font-bold text-foreground">Funcionalidade em Beta Fechado</h2>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              O gerenciador de Treinos está em fase restrita de testes para contas selecionadas.
-            </p>
-          </div>
-          <Button asChild size="sm" className="w-full">
-            <Link href="/">Voltar ao Início</Link>
-          </Button>
-        </div>
       </div>
     )
   }

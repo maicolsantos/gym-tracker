@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { XpBadge } from "@/components/xp-badge"
 import { useHumiliationsInbox } from "@/hooks/use-humiliations-inbox"
-import { isWorkoutBetaAllowed } from "@/lib/workouts"
 
 export function AppHeader() {
   const { user } = useAuth()
@@ -68,13 +67,11 @@ export function AppHeader() {
             </Link>
           </Button>
 
-          {isWorkoutBetaAllowed(user.uid) && (
-            <Button variant="ghost" size="icon" asChild title="Treinos">
-              <Link href="/workouts">
-                <Dumbbell className="h-4 w-4" />
-              </Link>
-            </Button>
-          )}
+          <Button variant="ghost" size="icon" asChild title="Treinos">
+            <Link href="/workouts">
+              <Dumbbell className="h-4 w-4" />
+            </Link>
+          </Button>
 
           <Button variant="ghost" size="icon" asChild title="Amigos">
             <Link href="/friends">
