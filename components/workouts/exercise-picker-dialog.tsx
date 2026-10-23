@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { searchExercises, getMuscleGroups } from "@/lib/exercises/catalog"
 import type { CatalogExercise, WorkoutExercise } from "@/lib/exercises/types"
+import { MAX_EXERCISES_PER_DAY } from "@/lib/workouts"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
 interface ExercisePickerDialogProps {
@@ -24,6 +26,7 @@ interface ExercisePickerDialogProps {
   onAddExercises?: (exercises: WorkoutExercise[]) => void
   existingCatalogIds?: string[]
   dayName?: string
+  currentExerciseCount?: number
 }
 
 interface PickerItemProps {
@@ -48,7 +51,7 @@ function PickerExerciseItem({
     <div
       onClick={() => onToggleSelect(exercise)}
       className={cn(
-        "group flex items-center gap-2.5 p-2.5 rounded-xl border transition-all text-left cursor-pointer relative",
+        "group flex items-center gap-3 p-2.5 sm:p-3 rounded-xl border transition-all text-left cursor-pointer relative",
         // Já no treino: borda da cor do botão primário!
         isAlreadyInWorkout && !isSelected && "border-primary bg-primary/5 hover:border-primary ring-1 ring-primary/30",
         // Selecionado para adicionar agora
@@ -64,7 +67,7 @@ function PickerExerciseItem({
           e.stopPropagation()
           onConfigure(exercise)
         }}
-        className="h-12 w-12 sm:h-14 sm:w-14 rounded-lg bg-muted flex items-center justify-center shrink-0 overflow-hidden relative border group/thumb cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
+        className="h-14 w-14 sm:h-16 sm:w-16 rounded-xl bg-muted flex items-center justify-center shrink-0 overflow-hidden relative border group/thumb cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all shadow-xs"
         title="Ver animação e instruções"
       >
         {imageSrc ? (
@@ -76,31 +79,34 @@ function PickerExerciseItem({
             onError={() => setImgError(true)}
           />
         ) : (
-          <Dumbbell className="h-5 w-5 text-muted-foreground/60" />
+          <Dumbbell className="h-6 w-6 text-muted-foreground/60" />
         )}
         <div className="absolute inset-0 bg-black/35 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
-          <Info className="h-3.5 w-3.5 text-white" />
+          <Info className="h-4 w-4 text-white" />
         </div>
       </button>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-          <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20 leading-tight">
+      <div className="flex-1 min-w-0 pr-1">
+        <h4
+          className="text-xs sm:text-sm font-bold leading-snug line-clamp-2 break-normal text-foreground group-hover:text-primary transition-colors"
+          title={exercise.name}
+        >
+          {exercise.name}
+        </h4>
+
+        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 leading-tight">
             {exercise.muscleLabel}
           </span>
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-muted text-muted-foreground leading-tight">
+            {exercise.equipmentLabel}
+          </span>
           {isAlreadyInWorkout && (
-            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-primary text-primary-foreground leading-tight">
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-primary text-primary-foreground leading-tight">
               ✓ No treino
             </span>
           )}
         </div>
-
-        <h4 className="text-xs sm:text-sm font-semibold truncate leading-tight group-hover:text-primary transition-colors">
-          {exercise.name}
-        </h4>
-        <span className="text-[10px] text-muted-foreground mt-0.5 block truncate">
-          {exercise.equipmentLabel}
-        </span>
       </div>
 
       {/* Botões de Ação na Direita */}
@@ -147,6 +153,7 @@ export function ExercisePickerDialog({
   onAddExercises,
   existingCatalogIds,
   dayName,
+  currentExerciseCount,
 }: ExercisePickerDialogProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null)
@@ -154,6 +161,9 @@ export function ExercisePickerDialog({
   const [selectedExercisesMap, setSelectedExercisesMap] = useState<Map<string, CatalogExercise>>(new Map())
 
   const existingSet = useMemo(() => new Set(existingCatalogIds || []), [existingCatalogIds])
+  const currentCount = currentExerciseCount ?? (existingCatalogIds?.length ?? 0)
+  const remainingSlots = Math.max(0, MAX_EXERCISES_PER_DAY - currentCount)
+  const isLimitReached = remainingSlots <= 0
 
   // Campos de configuração do exercício selecionado
   const [sets, setSets] = useState(3)
@@ -194,6 +204,12 @@ export function ExercisePickerDialog({
       if (next.has(exercise.id)) {
         next.delete(exercise.id)
       } else {
+        if (next.size >= remainingSlots) {
+          toast.warning(
+            `Limite de ${MAX_EXERCISES_PER_DAY} exercícios por treino. Você só pode selecionar mais ${remainingSlots}.`
+          )
+          return prev
+        }
         next.set(exercise.id, exercise)
       }
       return next
@@ -245,6 +261,10 @@ export function ExercisePickerDialog({
 
   const handleConfirmAdd = () => {
     if (!selectedExercise) return
+    if (isLimitReached) {
+      toast.error(`Limite máximo de ${MAX_EXERCISES_PER_DAY} exercícios por treino atingido.`)
+      return
+    }
 
     const workoutExercise: WorkoutExercise = {
       id: "ex-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
@@ -288,7 +308,7 @@ export function ExercisePickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent className="w-[95vw] sm:max-w-3xl md:max-w-4xl lg:max-w-5xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="p-4 sm:p-5 border-b bg-muted/20">
           <div className="flex items-center gap-2">
             {selectedExercise && (
@@ -310,7 +330,7 @@ export function ExercisePickerDialog({
                 {selectedExercise
                   ? "Defina séries, repetições e cargas para o seu treino"
                   : dayName
-                  ? `Adicionar ao ${dayName}`
+                  ? `${dayName} • ${currentCount}/${MAX_EXERCISES_PER_DAY} exercícios`
                   : "Explore mais de 1.300 exercícios com GIFs animados e instruções"}
               </DialogDescription>
             </div>
@@ -320,6 +340,16 @@ export function ExercisePickerDialog({
         {/* View 1: Busca e Seleção */}
         {!selectedExercise && (
           <div className="flex flex-col flex-1 overflow-hidden">
+            {/* Aviso de Limite de Exercícios */}
+            {isLimitReached && (
+              <div className="mx-4 mt-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-400 text-xs font-medium flex items-center justify-between">
+                <span>Limite máximo de {MAX_EXERCISES_PER_DAY} exercícios atingido neste treino.</span>
+                <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-400 font-bold">
+                  {MAX_EXERCISES_PER_DAY}/{MAX_EXERCISES_PER_DAY}
+                </Badge>
+              </div>
+            )}
+
             {/* Campo de Busca */}
             <div className="p-4 border-b space-y-3 bg-background">
               <div className="relative">
@@ -328,7 +358,11 @@ export function ExercisePickerDialog({
                   placeholder="Pesquisar por nome, músculo ou equipamento (ex: supino, rosca, costas)..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 pr-9 h-10 text-sm"
+                  className="pl-9 pr-9 h-10 text-base md:text-sm"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   autoFocus
                 />
                 {searchQuery && (
@@ -374,7 +408,7 @@ export function ExercisePickerDialog({
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {filteredExercises.map((ex) => (
                     <PickerExerciseItem
                       key={ex.id}
@@ -601,7 +635,7 @@ export function ExercisePickerDialog({
               <Button variant="outline" onClick={() => setSelectedExercise(null)}>
                 Voltar à busca
               </Button>
-              <Button onClick={handleConfirmAdd} className="gap-1.5 font-semibold">
+              <Button onClick={handleConfirmAdd} disabled={isLimitReached} className="gap-1.5 font-semibold">
                 <Check className="h-4 w-4" />
                 Adicionar ao Treino
               </Button>

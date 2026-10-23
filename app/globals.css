@@ -139,3 +139,23 @@
     overscroll-behavior-y: none;
   }
 }
+
+/* Previne zoom automático indesejado no iOS Safari ao focar inputs */
+@media screen and (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Remove estilo de preenchimento automático invasivo do iOS Safari / WebKit */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: inherit !important;
+  transition: background-color 5000s ease-in-out 0s;
+  box-shadow: inset 0 0 20px 20px transparent !important;
+}

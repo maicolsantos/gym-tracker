@@ -8,6 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { getExerciseById } from "@/lib/exercises/catalog"
 import type { WorkoutExercise } from "@/lib/exercises/types"
@@ -18,16 +24,20 @@ import {
   Dumbbell,
   Edit2,
   Info,
+  MoreVertical,
   Play,
   Timer,
   Trash2,
 } from "lucide-react"
 import { useState } from "react"
+import { cn } from "@/lib/utils"
 
 interface WorkoutExerciseCardProps {
   exercise: WorkoutExercise
   index: number
   totalCount: number
+  isCompleted?: boolean
+  onToggleComplete?: () => void
   onUpdate: (updated: WorkoutExercise) => void
   onRemove: () => void
   onMoveUp: () => void
@@ -39,6 +49,8 @@ export function WorkoutExerciseCard({
   exercise,
   index,
   totalCount,
+  isCompleted = false,
+  onToggleComplete,
   onUpdate,
   onRemove,
   onMoveUp,
@@ -93,7 +105,14 @@ export function WorkoutExerciseCard({
 
   return (
     <>
-      <div className="group relative rounded-xl border bg-card p-3 shadow-sm hover:shadow-md transition-all">
+      <div
+        className={cn(
+          "group relative rounded-xl border p-3 shadow-sm hover:shadow-md transition-all",
+          isCompleted
+            ? "bg-emerald-500/5 dark:bg-emerald-500/10 border-emerald-500/40 ring-1 ring-emerald-500/20"
+            : "bg-card border-border"
+        )}
+      >
         {/* Topo: Miniatura + Info + Botões de Ação na Direita */}
         <div className="flex items-start justify-between gap-2.5">
           {/* Lado Esquerdo: Miniatura e Info */}
@@ -116,14 +135,31 @@ export function WorkoutExerciseCard({
               ) : (
                 <Dumbbell className="h-5 w-5 text-muted-foreground/60" />
               )}
-              <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <Play className="h-3.5 w-3.5 text-white fill-white" />
-              </div>
+              {isCompleted ? (
+                <div className="absolute top-1 right-1 h-4 w-4 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                  <Check className="h-2.5 w-2.5 stroke-[3]" />
+                </div>
+              ) : (
+                <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                  <Play className="h-3.5 w-3.5 text-white fill-white" />
+                </div>
+              )}
             </button>
 
             {/* Info Textual */}
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 flex-wrap mb-1">
+              <h4
+                onClick={() => setShowDetails(true)}
+                className={cn(
+                  "text-xs sm:text-sm font-bold leading-snug cursor-pointer hover:text-primary transition-colors line-clamp-2 break-normal",
+                  isCompleted ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"
+                )}
+                title={exercise.name}
+              >
+                {exercise.name}
+              </h4>
+
+              <div className="flex items-center gap-1.5 flex-wrap mt-1">
                 <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20 leading-tight">
                   {exercise.muscleLabel}
                 </span>
@@ -131,14 +167,6 @@ export function WorkoutExerciseCard({
                   {exercise.equipmentLabel}
                 </span>
               </div>
-
-              <h4
-                onClick={() => setShowDetails(true)}
-                className="text-xs sm:text-sm font-semibold leading-tight text-foreground truncate cursor-pointer hover:text-primary transition-colors"
-                title={exercise.name}
-              >
-                {exercise.name}
-              </h4>
 
               {exercise.notes && !isEditing && (
                 <p className="text-[11px] text-muted-foreground/80 mt-1 line-clamp-1 break-words">
@@ -148,8 +176,73 @@ export function WorkoutExerciseCard({
             </div>
           </div>
 
-          {/* Lado Direito: Ações (Sempre fixas e compactas no topo) */}
-          <div className="flex items-center gap-0.5 shrink-0 -mr-1">
+          {/* Lado Direito: Ações */}
+          <div className="flex items-center gap-1 shrink-0 -mr-1">
+            {onToggleComplete && (
+              <Button
+                type="button"
+                variant={isCompleted ? "default" : "outline"}
+                size="sm"
+                onClick={onToggleComplete}
+                className={cn(
+                  "h-8 px-2 sm:px-2.5 text-xs font-semibold gap-1 rounded-lg transition-all shrink-0",
+                  isCompleted
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-xs"
+                    : "text-muted-foreground hover:text-emerald-600 border-border/80 hover:border-emerald-500/50 hover:bg-emerald-500/5"
+                )}
+                title={isCompleted ? "Marcar exercício como pendente" : "Marcar exercício como concluído"}
+              >
+                <Check className={cn("h-4 w-4", isCompleted ? "stroke-[3]" : "stroke-2")} />
+                <span className="hidden sm:inline">{isCompleted ? "Concluído" : "Concluir"}</span>
+              </Button>
+            )}
+
+            {/* Menu Dropdown no Mobile */}
+            <div className="sm:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    disabled={index === 0}
+                    onClick={onMoveUp}
+                  >
+                    <ChevronUp className="h-3.5 w-3.5 mr-2" /> Mover para Cima
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={index === totalCount - 1}
+                    onClick={onMoveDown}
+                  >
+                    <ChevronDown className="h-3.5 w-3.5 mr-2" /> Mover para Baixo
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSets(exercise.sets)
+                      setReps(exercise.reps)
+                      setWeightKg(exercise.weightKg ?? 0)
+                      setRestSeconds(exercise.restSeconds)
+                      setNotes(exercise.notes ?? "")
+                      setIsEditing(true)
+                    }}
+                  >
+                    <Edit2 className="h-3.5 w-3.5 mr-2" /> Editar Exercício
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={onRemove}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir Exercício
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            {/* Botões diretos no Desktop */}
+            <div className="hidden sm:flex items-center gap-0.5">
+
             <Button
               variant="ghost"
               size="icon"
@@ -199,6 +292,7 @@ export function WorkoutExerciseCard({
             >
               <Trash2 className="h-3 w-3" />
             </Button>
+            </div>
           </div>
         </div>
 

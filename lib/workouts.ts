@@ -382,6 +382,60 @@ export function saveWorkoutLog(entry: WorkoutLogEntry): void {
   }
 }
 
+export const MAX_PLANS_COUNT = 5
+export const MAX_DAYS_PER_PLAN = 7
+export const MAX_EXERCISES_PER_DAY = 15
+
+export const LOCAL_STORAGE_ACTIVE_SESSION = "gym-active-workout-session"
+const SESSION_TTL_MS = 3 * 60 * 60 * 1000 // 3 horas
+
+export interface ActiveWorkoutSession {
+  planId: string
+  dayId: string
+  isStarted: boolean
+  completedExerciseIds: string[]
+  updatedAt: number
+}
+
+export function getActiveWorkoutSession(): ActiveWorkoutSession | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_ACTIVE_SESSION)
+    if (!raw) return null
+    const data = JSON.parse(raw) as ActiveWorkoutSession
+    if (!data || typeof data.updatedAt !== "number" || Date.now() - data.updatedAt > SESSION_TTL_MS) {
+      localStorage.removeItem(LOCAL_STORAGE_ACTIVE_SESSION)
+      return null
+    }
+    return data
+  } catch (err) {
+    console.error("Erro ao ler sessão ativa de treino:", err)
+    return null
+  }
+}
+
+export function saveActiveWorkoutSession(session: Omit<ActiveWorkoutSession, "updatedAt">): void {
+  if (typeof window === "undefined") return
+  try {
+    const toSave: ActiveWorkoutSession = {
+      ...session,
+      updatedAt: Date.now(),
+    }
+    localStorage.setItem(LOCAL_STORAGE_ACTIVE_SESSION, JSON.stringify(toSave))
+  } catch (err) {
+    console.error("Erro ao salvar sessão ativa de treino:", err)
+  }
+}
+
+export function clearActiveWorkoutSession(): void {
+  if (typeof window === "undefined") return
+  try {
+    localStorage.removeItem(LOCAL_STORAGE_ACTIVE_SESSION)
+  } catch (err) {
+    console.error("Erro ao limpar sessão ativa de treino:", err)
+  }
+}
+
 export function removeWorkoutLog(date: string): void {
   if (typeof window === "undefined") return
   try {

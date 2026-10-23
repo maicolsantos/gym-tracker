@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import type { WorkoutPlan } from "@/lib/exercises/types"
-import { DEFAULT_WORKOUT_TEMPLATES } from "@/lib/workouts"
+import { DEFAULT_WORKOUT_TEMPLATES, MAX_PLANS_COUNT } from "@/lib/workouts"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
@@ -83,6 +83,11 @@ export function WorkoutPlanList({
   const handleCreate = () => {
     if (!planTitle.trim()) return
 
+    if (plans.length >= MAX_PLANS_COUNT) {
+      toast.error(`Você atingiu o limite máximo de ${MAX_PLANS_COUNT} planos de treino. Exclua um para criar outro.`)
+      return
+    }
+
     const now = new Date().toISOString()
     let initialDays = [
       {
@@ -116,6 +121,8 @@ export function WorkoutPlanList({
     toast.success(`Plano "${newPlan.title}" criado e ativado!`)
   }
 
+  const isPlanLimitReached = plans.length >= MAX_PLANS_COUNT
+
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-xl border bg-card shadow-sm">
       <div className="flex items-center gap-3 min-w-0">
@@ -147,7 +154,7 @@ export function WorkoutPlanList({
           className="flex-1 sm:flex-initial gap-1.5 text-xs h-8 px-2.5"
         >
           <FolderOpen className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">Planos ({plans.length})</span>
+          <span className="truncate">Planos ({plans.length}/{MAX_PLANS_COUNT})</span>
           <ChevronDown className="h-3 w-3 opacity-60 shrink-0" />
         </Button>
 
@@ -163,13 +170,19 @@ export function WorkoutPlanList({
 
         <Button
           size="sm"
+          disabled={isPlanLimitReached}
           onClick={() => {
+            if (isPlanLimitReached) {
+              toast.error(`Você atingiu o limite máximo de ${MAX_PLANS_COUNT} planos. Exclua um antes de criar outro.`)
+              return
+            }
             setPlanTitle("")
             setPlanDescription("")
             setSelectedTemplateIndex(null)
             setIsCreateDialogOpen(true)
           }}
           className="flex-1 sm:flex-initial gap-1 text-xs h-8 px-2.5 font-semibold"
+          title={isPlanLimitReached ? `Limite de ${MAX_PLANS_COUNT} planos atingido` : "Criar novo plano"}
         >
           <Plus className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">Novo Plano</span>
@@ -247,17 +260,23 @@ export function WorkoutPlanList({
           </div>
 
           <DialogFooter className="flex items-center justify-between sm:justify-between w-full">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setIsSwitchDialogOpen(false)
-                setIsCreateDialogOpen(true)
-              }}
-              className="gap-1 text-xs"
-            >
-              <Plus className="h-3.5 w-3.5" /> Criar Outro Plano
-            </Button>
+            {isPlanLimitReached ? (
+              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                Limite de {MAX_PLANS_COUNT} planos atingido
+              </span>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsSwitchDialogOpen(false)
+                  setIsCreateDialogOpen(true)
+                }}
+                className="gap-1 text-xs"
+              >
+                <Plus className="h-3.5 w-3.5" /> Criar Outro Plano
+              </Button>
+            )}
             <Button size="sm" onClick={() => setIsSwitchDialogOpen(false)}>
               Fechar
             </Button>

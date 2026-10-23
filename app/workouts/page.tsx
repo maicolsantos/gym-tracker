@@ -13,10 +13,11 @@ import {
   isWorkoutBetaAllowed,
   saveLocalWorkoutPlans,
   saveWorkoutPlan,
-  setActiveWorkoutPlan
+  setActiveWorkoutPlan,
+  MAX_PLANS_COUNT,
 } from "@/lib/workouts"
 import { awardWorkoutXp } from "@/lib/xp"
-import { arrayUnion, doc, setDoc, updateDoc } from "firebase/firestore"
+import { arrayUnion, doc, getDoc, setDoc, updateDoc } from "firebase/firestore"
 import { CalendarCheck, Dumbbell, Lock, Sparkles, Timer } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
@@ -28,7 +29,7 @@ export default function WorkoutsPage() {
   const [activePlanId, setActivePlanId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeRestSeconds, setActiveRestSeconds] = useState<number | null>(null)
-  const [showRestTimer, setShowRestTimer] = useState(true)
+  const [showRestTimer, setShowRestTimer] = useState(false)
 
   // Carrega os planos do usuário (apenas se for usuário beta autorizado)
   useEffect(() => {
@@ -86,6 +87,11 @@ export default function WorkoutsPage() {
   }
 
   const handleCreatePlan = async (newPlan: WorkoutPlan) => {
+    if (plans.length >= MAX_PLANS_COUNT) {
+      toast.error(`Você atingiu o limite máximo de ${MAX_PLANS_COUNT} planos.`)
+      return
+    }
+
     const updatedPlans = [...plans.map((p) => ({ ...p, isCurrent: false })), newPlan]
     setPlans(updatedPlans)
     setActivePlanId(newPlan.id)
@@ -158,31 +164,37 @@ export default function WorkoutsPage() {
     if (user) {
       const docRef = doc(getDb(), "workouts", user.uid)
       try {
-        await updateDoc(docRef, {
-          dates: arrayUnion(date),
-        })
-      } catch {
-        try {
-          await setDoc(docRef, { dates: [date] }, { merge: true })
-        } catch (err) {
-          console.error("Erro ao registrar presença no Firestore:", err)
-        }
-      }
-      awardWorkoutXp(user.uid, date).catch((err) =>
-        console.error("Erro ao creditar XP:", err)
-      )
-    } else {
-      // Local storage fallback
-      try {
-        const raw = localStorage.getItem("gym-workout-dates")
-        const dates: string[] = raw ? JSON.parse(raw) : []
-        if (!dates.includes(date)) {
-          dates.push(date)
-          localStorage.setItem("gym-workout-dates", JSON.stringify(dates))
+        const snap = await getDoc(docRef)
+        const currentDates: string[] = snap.exists() ? (snap.data().dates as string[]) || [] : []
+        const alreadyExists = currentDates.includes(date)
+
+        if (!alreadyExists) {
+          try {
+            await updateDoc(docRef, {
+              dates: arrayUnion(date),
+            })
+          } catch {
+            await setDoc(docRef, { dates: [date] }, { merge: true })
+          }
+          awardWorkoutXp(user.uid, date).catch((err) =>
+            console.error("Erro ao creditar XP:", err)
+          )
         }
       } catch (err) {
-        console.error("Erro ao salvar data local:", err)
+        console.error("Erro ao registrar presença no Firestore:", err)
       }
+    }
+
+    // Mantém cache local de datas sincronizado
+    try {
+      const raw = localStorage.getItem("gym-workout-dates")
+      const dates: string[] = raw ? JSON.parse(raw) : []
+      if (!dates.includes(date)) {
+        dates.push(date)
+        localStorage.setItem("gym-workout-dates", JSON.stringify(dates))
+      }
+    } catch (err) {
+      console.error("Erro ao salvar data local:", err)
     }
   }
 

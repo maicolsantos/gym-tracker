@@ -14,6 +14,7 @@ import {
   Play,
   Check,
   Flame,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -33,8 +34,20 @@ import {
 import { WorkoutExerciseCard } from "./workout-exercise-card"
 import { ExercisePickerDialog } from "./exercise-picker-dialog"
 import type { WorkoutPlan, WorkoutDay, WorkoutExercise } from "@/lib/exercises/types"
-import { saveWorkoutLog, getWorkoutLogs } from "@/lib/workouts"
+import {
+  saveWorkoutLog,
+  getWorkoutLogs,
+  removeWorkoutLog,
+  getActiveWorkoutSession,
+  saveActiveWorkoutSession,
+  clearActiveWorkoutSession,
+  MAX_DAYS_PER_PLAN,
+  MAX_EXERCISES_PER_DAY,
+} from "@/lib/workouts"
 import { getTodayDateKey } from "@/lib/date-utils"
+import { useAuth } from "@/contexts/auth-context"
+import { getDb } from "@/lib/firebase"
+import { doc, getDoc } from "firebase/firestore"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
@@ -51,6 +64,7 @@ export function WorkoutDayView({
   onStartRest,
   onWorkoutCompleted,
 }: WorkoutDayViewProps) {
+  const { user } = useAuth()
   const [selectedDayId, setSelectedDayId] = useState<string>(() => {
     return plan.days[0]?.id ?? ""
   })
@@ -63,7 +77,10 @@ export function WorkoutDayView({
   // Estados de sessão do treino
   const [isWorkoutStarted, setIsWorkoutStarted] = useState(false)
   const [isWorkoutCompletedToday, setIsWorkoutCompletedToday] = useState(false)
-  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [completedExerciseIds, setCompletedExerciseIds] = useState<string[]>([])
+
+  // Limite de dias de treino
+  const isDayLimitReached = plan.days.length >= MAX_DAYS_PER_PLAN
 
   // Garante que se o dia selecionado for removido ou o plano mudar, seleciona um dia válido
   useEffect(() => {
@@ -72,57 +89,140 @@ export function WorkoutDayView({
     }
   }, [plan.id, plan.days, selectedDayId])
 
+  // Restaura sessão ativa salva no localStorage (com expiração de no máximo 3h)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const session = getActiveWorkoutSession()
+    if (session && session.planId === plan.id) {
+      if (session.dayId && plan.days.some((d) => d.id === session.dayId)) {
+        setSelectedDayId(session.dayId)
+      }
+      setIsWorkoutStarted(session.isStarted)
+      setCompletedExerciseIds(session.completedExerciseIds || [])
+    }
+  }, [plan.id])
+
   const activeDayIndex = Math.max(
     0,
     plan.days.findIndex((d) => d.id === selectedDayId)
   )
   const activeDay = plan.days[activeDayIndex] || plan.days[0]
+  const isExerciseLimitReached = (activeDay?.exercises?.length ?? 0) >= MAX_EXERCISES_PER_DAY
 
-  // Checa se o treino de hoje já foi feito para este dia
+  // Checa se o treino de hoje já foi feito para este dia e sincroniza com o calendário
   useEffect(() => {
     if (typeof window === "undefined" || !activeDay) return
     const today = getTodayDateKey()
-    const logs = getWorkoutLogs()
-    if (logs[today]?.dayId === activeDay.id) {
-      setIsWorkoutCompletedToday(true)
-    } else {
-      setIsWorkoutCompletedToday(false)
-    }
-  }, [activeDay?.id])
 
-  // Cronômetro do treino em andamento
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null
-    if (isWorkoutStarted) {
-      interval = setInterval(() => {
-        setElapsedSeconds((prev) => prev + 1)
-      }, 1000)
-    } else {
-      setElapsedSeconds(0)
+    let isMounted = true
+
+    const checkCompletion = async () => {
+      const logs = getWorkoutLogs()
+      const hasLocalLog = logs[today]?.dayId === activeDay.id
+
+      if (!hasLocalLog) {
+        if (isMounted) setIsWorkoutCompletedToday(false)
+        return
+      }
+
+      // Se há registro local e temos usuário autenticado, valida se a data ainda consta no calendário
+      if (user) {
+        try {
+          const docRef = doc(getDb(), "workouts", user.uid)
+          const snap = await getDoc(docRef)
+          if (isMounted) {
+            const dates: string[] = snap.exists() ? (snap.data().dates || []) : []
+            if (!dates.includes(today)) {
+              // Foi desmarcado no calendário: remove do localStorage e atualiza estado
+              removeWorkoutLog(today)
+              clearActiveWorkoutSession()
+              setIsWorkoutCompletedToday(false)
+              return
+            }
+          }
+        } catch (err) {
+          console.error("Erro ao validar status do treino com Firestore:", err)
+        }
+      }
+
+      if (isMounted) {
+        setIsWorkoutCompletedToday(true)
+      }
     }
+
+    checkCompletion()
+
+    // Ouve notificações de atualização de datas e logs do calendário
+    const handleLogUpdate = () => {
+      checkCompletion()
+    }
+
+    window.addEventListener("workout-log-updated", handleLogUpdate)
+    window.addEventListener("storage", handleLogUpdate)
     return () => {
-      if (interval) clearInterval(interval)
+      isMounted = false
+      window.removeEventListener("workout-log-updated", handleLogUpdate)
+      window.removeEventListener("storage", handleLogUpdate)
     }
-  }, [isWorkoutStarted])
-
-  const formatElapsed = (sec: number) => {
-    const mins = Math.floor(sec / 60)
-    const s = sec % 60
-    return `${mins.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
-  }
+  }, [activeDay?.id, user])
 
   const handleStartWorkout = () => {
     setIsWorkoutStarted(true)
+    if (activeDay) {
+      saveActiveWorkoutSession({
+        planId: plan.id,
+        dayId: activeDay.id,
+        isStarted: true,
+        completedExerciseIds,
+      })
+    }
     toast.success("Treino iniciado! Bom treino 💪🔥", {
-      description: "Ao finalizar suas séries, clique em 'Concluir'.",
+      description: "Ao finalizar suas séries, clique em 'Concluir Treino'.",
     })
+  }
+
+  const handleCancelWorkout = () => {
+    clearActiveWorkoutSession()
+    setIsWorkoutStarted(false)
+    setCompletedExerciseIds([])
+    toast.info("Treino em andamento cancelado.")
+  }
+
+  const handleToggleExerciseComplete = (exerciseId: string) => {
+    const next = completedExerciseIds.includes(exerciseId)
+      ? completedExerciseIds.filter((id) => id !== exerciseId)
+      : [...completedExerciseIds, exerciseId]
+
+    setCompletedExerciseIds(next)
+
+    if (activeDay) {
+      saveActiveWorkoutSession({
+        planId: plan.id,
+        dayId: activeDay.id,
+        isStarted: isWorkoutStarted,
+        completedExerciseIds: next,
+      })
+    }
   }
 
   const handleSelectDay = (dayId: string) => {
     setSelectedDayId(dayId)
+    if (isWorkoutStarted) {
+      saveActiveWorkoutSession({
+        planId: plan.id,
+        dayId,
+        isStarted: true,
+        completedExerciseIds,
+      })
+    }
   }
 
   const handleAddDay = () => {
+    if (plan.days.length >= MAX_DAYS_PER_PLAN) {
+      toast.error(`Você atingiu o limite máximo de ${MAX_DAYS_PER_PLAN} treinos por plano.`)
+      return
+    }
+
     const trimmed = newDayName.trim()
     if (!trimmed) return
 
@@ -163,6 +263,13 @@ export function WorkoutDayView({
       return
     }
 
+    const session = getActiveWorkoutSession()
+    if (session && session.dayId === dayId) {
+      clearActiveWorkoutSession()
+      setIsWorkoutStarted(false)
+      setCompletedExerciseIds([])
+    }
+
     const updatedDays = plan.days.filter((d) => d.id !== dayId)
     onUpdatePlan({ ...plan, days: updatedDays })
 
@@ -175,17 +282,30 @@ export function WorkoutDayView({
   const handleAddExercisesToActiveDay = (newExercises: WorkoutExercise[]) => {
     if (!activeDay || newExercises.length === 0) return
 
+    const availableSlots = Math.max(0, MAX_EXERCISES_PER_DAY - activeDay.exercises.length)
+    if (availableSlots <= 0) {
+      toast.error(`Limite máximo de ${MAX_EXERCISES_PER_DAY} exercícios por treino atingido.`)
+      return
+    }
+
+    const toAdd = newExercises.slice(0, availableSlots)
+    if (toAdd.length < newExercises.length) {
+      toast.warning(
+        `Apenas ${toAdd.length} exercício(s) adicionados para respeitar o limite de ${MAX_EXERCISES_PER_DAY}.`
+      )
+    }
+
     const updatedDays = plan.days.map((d) =>
       d.id === activeDay.id
-        ? { ...d, exercises: [...d.exercises, ...newExercises] }
+        ? { ...d, exercises: [...d.exercises, ...toAdd] }
         : d
     )
 
     onUpdatePlan({ ...plan, days: updatedDays })
     toast.success(
-      newExercises.length === 1
-        ? `${newExercises[0].name} adicionado ao treino!`
-        : `${newExercises.length} exercícios adicionados ao treino!`
+      toAdd.length === 1
+        ? `${toAdd[0].name} adicionado ao treino!`
+        : `${toAdd.length} exercícios adicionados ao treino!`
     )
   }
 
@@ -244,7 +364,10 @@ export function WorkoutDayView({
       completedAt: new Date().toISOString(),
     })
 
+    // Limpa a sessão ativa do localStorage
+    clearActiveWorkoutSession()
     setIsWorkoutStarted(false)
+    setCompletedExerciseIds([])
     setIsWorkoutCompletedToday(true)
 
     if (onWorkoutCompleted) {
@@ -308,11 +431,19 @@ export function WorkoutDayView({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setIsNewDayDialogOpen(true)}
+            disabled={isDayLimitReached}
+            onClick={() => {
+              if (isDayLimitReached) {
+                toast.error(`Limite máximo de ${MAX_DAYS_PER_PLAN} treinos por plano atingido.`)
+                return
+              }
+              setIsNewDayDialogOpen(true)
+            }}
             className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground border border-dashed rounded-lg"
+            title={isDayLimitReached ? `Limite de ${MAX_DAYS_PER_PLAN} treinos atingido` : "Adicionar dia de treino"}
           >
             <Plus className="h-3.5 w-3.5 mr-1" />
-            Novo Dia
+            Novo Dia {isDayLimitReached && `(${MAX_DAYS_PER_PLAN}/${MAX_DAYS_PER_PLAN})`}
           </Button>
         </div>
       </div>
@@ -326,9 +457,9 @@ export function WorkoutDayView({
                 {activeDay.name}
               </h3>
               {isWorkoutStarted && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Em andamento ({formatElapsed(elapsedSeconds)})
+                  Em andamento
                 </span>
               )}
               {isWorkoutCompletedToday && !isWorkoutStarted && (
@@ -340,9 +471,7 @@ export function WorkoutDayView({
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {activeDay.exercises.length === 0
                 ? "Nenhum exercício neste treino ainda"
-                : `${activeDay.exercises.length} exercício${
-                    activeDay.exercises.length > 1 ? "s" : ""
-                  } configurado${activeDay.exercises.length > 1 ? "s" : ""}`}
+                : `${activeDay.exercises.length} de ${MAX_EXERCISES_PER_DAY} exercícios configurados`}
             </p>
           </div>
 
@@ -354,6 +483,14 @@ export function WorkoutDayView({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {isWorkoutStarted && (
+                  <DropdownMenuItem
+                    onClick={handleCancelWorkout}
+                    className="text-amber-600 dark:text-amber-400"
+                  >
+                    <X className="h-3.5 w-3.5 mr-2" /> Cancelar Treino
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={() => {
                     setDayNameToEdit(activeDay.name)
@@ -390,10 +527,10 @@ export function WorkoutDayView({
             <Button
               size="sm"
               onClick={handleLogWorkoutToday}
-              className="gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm h-8 px-2.5 animate-pulse"
+              className="gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm h-8 px-3"
             >
               <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">Concluir ({formatElapsed(elapsedSeconds)})</span>
+              <span className="truncate">Concluir Treino</span>
             </Button>
           )}
 
@@ -412,11 +549,19 @@ export function WorkoutDayView({
 
           <Button
             size="sm"
-            onClick={() => setIsPickerOpen(true)}
+            disabled={isExerciseLimitReached}
+            onClick={() => {
+              if (isExerciseLimitReached) {
+                toast.error(`Limite de ${MAX_EXERCISES_PER_DAY} exercícios por treino atingido.`)
+                return
+              }
+              setIsPickerOpen(true)
+            }}
             className="gap-1.5 text-xs font-semibold h-8 px-2.5"
+            title={isExerciseLimitReached ? `Limite de ${MAX_EXERCISES_PER_DAY} exercícios atingido` : "Adicionar exercício"}
           >
             <Plus className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">Exercício</span>
+            <span className="truncate">Exercício ({activeDay.exercises.length}/{MAX_EXERCISES_PER_DAY})</span>
           </Button>
 
           <div className="hidden sm:flex items-center">
@@ -427,6 +572,14 @@ export function WorkoutDayView({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {isWorkoutStarted && (
+                  <DropdownMenuItem
+                    onClick={handleCancelWorkout}
+                    className="text-amber-600 dark:text-amber-400"
+                  >
+                    <X className="h-3.5 w-3.5 mr-2" /> Cancelar Treino
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={() => {
                     setDayNameToEdit(activeDay.name)
@@ -470,6 +623,8 @@ export function WorkoutDayView({
               exercise={exercise}
               index={index}
               totalCount={activeDay.exercises.length}
+              isCompleted={completedExerciseIds.includes(exercise.id)}
+              onToggleComplete={() => handleToggleExerciseComplete(exercise.id)}
               onUpdate={(updated) => handleUpdateExercise(index, updated)}
               onRemove={() => handleRemoveExercise(index)}
               onMoveUp={() => handleMoveExercise(index, index - 1)}
@@ -483,11 +638,20 @@ export function WorkoutDayView({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setIsPickerOpen(true)}
+              disabled={isExerciseLimitReached}
+              onClick={() => {
+                if (isExerciseLimitReached) {
+                  toast.error(`Limite de ${MAX_EXERCISES_PER_DAY} exercícios por treino atingido.`)
+                  return
+                }
+                setIsPickerOpen(true)
+              }}
               className="w-full border-dashed gap-1.5 text-xs h-10 text-muted-foreground hover:text-foreground"
             >
               <Plus className="h-4 w-4" />
-              Adicionar outro exercício
+              {isExerciseLimitReached
+                ? `Limite de ${MAX_EXERCISES_PER_DAY} exercícios atingido`
+                : "Adicionar outro exercício"}
             </Button>
           </div>
         </div>
@@ -500,6 +664,7 @@ export function WorkoutDayView({
         onAddExercise={(ex) => handleAddExercisesToActiveDay([ex])}
         onAddExercises={handleAddExercisesToActiveDay}
         existingCatalogIds={activeDay.exercises.map((e) => e.catalogId)}
+        currentExerciseCount={activeDay.exercises.length}
         dayName={activeDay.name}
       />
 

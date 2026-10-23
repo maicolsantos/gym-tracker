@@ -6,10 +6,16 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/contexts/auth-context"
 import { useXp } from "@/hooks/use-xp"
-import { MONTHS, WEEKDAYS, formatDateKey, getDaysInMonth, getFirstDayOfMonth } from "@/lib/date-utils"
+import { MONTHS, WEEKDAYS, formatDateKey, getDaysInMonth, getFirstDayOfMonth, getTodayDateKey } from "@/lib/date-utils"
 import { getDb } from "@/lib/firebase"
 import { cn } from "@/lib/utils"
-import { getWorkoutLogs, isWorkoutBetaAllowed, type WorkoutLogEntry } from "@/lib/workouts"
+import {
+  getWorkoutLogs,
+  removeWorkoutLog,
+  clearActiveWorkoutSession,
+  isWorkoutBetaAllowed,
+  type WorkoutLogEntry,
+} from "@/lib/workouts"
 import { awardWorkoutXp, reverseWorkoutXp } from "@/lib/xp"
 import { XP_WORKOUT } from "@/lib/xp-config"
 import { arrayRemove, arrayUnion, doc, getDoc, setDoc, updateDoc } from "firebase/firestore"
@@ -111,6 +117,44 @@ export function Calendar() {
 
     // Show XP flash immediately (optimistic)
     triggerXpFlash(removing ? -XP_WORKOUT : XP_WORKOUT)
+
+    // Se estiver removendo, limpa logs e dados locais correspondentes
+    if (removing) {
+      removeWorkoutLog(dateKey)
+      if (dateKey === getTodayDateKey()) {
+        clearActiveWorkoutSession()
+      }
+      try {
+        const raw = localStorage.getItem("gym-workout-dates")
+        if (raw) {
+          const dates: string[] = JSON.parse(raw)
+          const updated = dates.filter((d) => d !== dateKey)
+          localStorage.setItem("gym-workout-dates", JSON.stringify(updated))
+        }
+      } catch (err) {
+        console.error("Erro ao remover data local:", err)
+      }
+      setWorkoutLogs((prev) => {
+        const next = { ...prev }
+        delete next[dateKey]
+        return next
+      })
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("workout-log-updated"))
+      }
+    } else {
+      // Se estiver adicionando, sincroniza com o cache local também
+      try {
+        const raw = localStorage.getItem("gym-workout-dates")
+        const dates: string[] = raw ? JSON.parse(raw) : []
+        if (!dates.includes(dateKey)) {
+          dates.push(dateKey)
+          localStorage.setItem("gym-workout-dates", JSON.stringify(dates))
+        }
+      } catch (err) {
+        console.error("Erro ao adicionar data local:", err)
+      }
+    }
 
     // Atomic Firestore update
     const docRef = doc(getDb(), "workouts", user.uid)
