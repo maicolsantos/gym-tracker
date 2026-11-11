@@ -5,51 +5,42 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if request.auth != null;
 
-      // Only create your own document, with validated fields only
-      allow create: if request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['displayName','photoURL','friendCode','friends','createdAt','xpTotal','xpSpent','xpAvailable'])
-        && request.resource.data.displayName is string
-        && request.resource.data.displayName.size() <= 100
-        && request.resource.data.friends is list
-        && request.resource.data.friends.size() == 0
-        && request.resource.data.xpTotal == 0
-        && request.resource.data.xpSpent == 0
-        && request.resource.data.xpAvailable == 0;
-
-      // Owner can update display fields only, or XP fields only (with invariant enforced).
-      // XP fields are NOT freely writable — splitting prevents mixing display + XP in one write,
-      // and the invariant (xpAvailable == xpTotal - xpSpent) must always hold.
-      // Note: full prevention of arbitrary XP self-award requires Cloud Functions.
-      // Others can only add/remove themselves from friends[] (no duplicates).
-      allow update: if (
-          request.auth.uid == uid
-          && (
-            // Case 1: only updating display fields — XP fields must not change
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL'])
-            ||
-            // Case 2: only updating XP fields — invariant must hold.
-            // xpAvailable CAN be negative (user spent XP then reversed a workout).
-            (request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(['xpTotal', 'xpSpent', 'xpAvailable'])
-             && request.resource.data.xpTotal >= 0
-             && request.resource.data.xpSpent >= 0
-             && request.resource.data.xpAvailable
-                  == request.resource.data.xpTotal - request.resource.data.xpSpent)
-          )
+      // Owner can write:
+      // - on creation: validates schema, zero initial XP, empty friends
+      // - on update: strictly enforces XP invariant (xpAvailable == xpTotal - xpSpent)
+      allow write: if request.auth.uid == uid && (
+        (
+          request.resource.data.keys().hasOnly(['displayName','photoURL','friendCode','friends','createdAt','xpTotal','xpSpent','xpAvailable'])
+          && request.resource.data.displayName is string
+          && request.resource.data.displayName.size() <= 100
+          && request.resource.data.friends is list
+          && request.resource.data.friends.size() == 0
+          && request.resource.data.xpTotal == 0
+          && request.resource.data.xpSpent == 0
+          && request.resource.data.xpAvailable == 0
         )
-        || (
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends'])
-          && (
-            // Adding own UID — must not already be in the list (prevents duplicates)
-            (request.resource.data.friends.size() == resource.data.friends.size() + 1
-             && request.resource.data.friends.hasAll(resource.data.friends)
-             && request.resource.data.friends.hasAll([request.auth.uid])
-             && !resource.data.friends.hasAll([request.auth.uid]))
-            // Removing own UID — must currently be in the list
-            || (request.resource.data.friends.size() == resource.data.friends.size() - 1
-                && resource.data.friends.hasAll(request.resource.data.friends)
-                && resource.data.friends.hasAll([request.auth.uid]))
-          )
+        ||
+        (
+          request.resource.data.xpTotal >= 0
+          && request.resource.data.xpSpent >= 0
+          && request.resource.data.xpAvailable == request.resource.data.xpTotal - request.resource.data.xpSpent
+        )
+      );
+
+      // Friends can only add/remove themselves from the friends list
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends'])
+        && (
+          // Adding own UID — must keep existing friends plus own UID
+          (request.resource.data.friends.size() == resource.data.friends.size() + 1
+           && request.resource.data.friends.hasAll(resource.data.friends)
+           && request.resource.data.friends.hasAll([request.auth.uid])
+           && !resource.data.friends.hasAll([request.auth.uid]))
+          ||
+          // Removing own UID — must keep remaining friends without own UID
+          (request.resource.data.friends.size() == resource.data.friends.size() - 1
+           && resource.data.friends.hasAll(request.resource.data.friends)
+           && resource.data.friends.hasAll([request.auth.uid]))
         );
 
       allow delete: if request.auth.uid == uid;

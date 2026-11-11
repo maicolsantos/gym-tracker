@@ -6,6 +6,12 @@ __v0_jsx-dev-runtime.ts
 # Common ignores
 node_modules
 .next/
+.next-test/
+test-results/
+playwright-report/
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
 .env*
 .env*.local
 .DS_Store

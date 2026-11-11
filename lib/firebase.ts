@@ -1,6 +1,6 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app"
-import { getAuth as _getAuth, GoogleAuthProvider, type Auth } from "firebase/auth"
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, type Firestore } from "firebase/firestore"
+import { getAuth as _getAuth, connectAuthEmulator, GoogleAuthProvider, type Auth } from "firebase/auth"
+import { initializeFirestore, connectFirestoreEmulator, persistentLocalCache, persistentMultipleTabManager, type Firestore } from "firebase/firestore"
 import { getAnalytics as _getAnalytics, isSupported, type Analytics } from "firebase/analytics"
 
 const firebaseConfig = {
@@ -28,17 +28,31 @@ function getApp() {
 export function getAuth() {
   if (!auth) {
     auth = _getAuth(getApp())
+    if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true") {
+      connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true })
+    }
   }
   return auth
 }
 
 export function getDb() {
   if (!db) {
-    db = initializeFirestore(getApp(), {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager(),
-      }),
-    })
+    // Garante que o Auth e seu emulador foram inicializados primeiro
+    getAuth()
+    const isEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true"
+    db = initializeFirestore(
+      getApp(),
+      isEmulator
+        ? {}
+        : {
+            localCache: persistentLocalCache({
+              tabManager: persistentMultipleTabManager(),
+            }),
+          },
+    )
+    if (isEmulator) {
+      connectFirestoreEmulator(db, "127.0.0.1", 8088)
+    }
   }
   return db
 }

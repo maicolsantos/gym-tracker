@@ -270,6 +270,8 @@ export function Calendar() {
       <button
         key={day}
         onClick={() => toggleDate(day)}
+        aria-label={`Dia ${day}`}
+        data-testid={`calendar-day-${day}`}
         title={log ? `${log.dayName} (${log.planTitle})` : undefined}
         className={cn(
           "h-10 w-10 rounded-full flex flex-col items-center justify-center text-sm font-medium transition-all relative",
@@ -306,13 +308,13 @@ export function Calendar() {
               </Button>
             </div>
             <div className="flex items-center justify-center gap-2">
-              <Button variant="outline" size="icon" onClick={handlePrevMonth}>
+              <Button variant="outline" size="icon" aria-label="Mês anterior" onClick={handlePrevMonth}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="min-w-[160px] text-center font-semibold">
+              <span className="min-w-[160px] text-center font-semibold" data-testid="current-month-year">
                 {MONTHS[currentMonth]} {currentYear}
               </span>
-              <Button variant="outline" size="icon" onClick={handleNextMonth}>
+              <Button variant="outline" size="icon" aria-label="Próximo mês" onClick={handleNextMonth}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>

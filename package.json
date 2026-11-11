@@ -5,8 +5,14 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev",
-    "lint": "eslint .",
-    "start": "next start"
+    "emulators": "firebase emulators:start",
+    "lint": "next lint",
+    "start": "next start",
+    "test:e2e": "firebase emulators:exec --project demo-gym-tracker \"playwright test\"",
+    "test:e2e:headed": "firebase emulators:exec --project demo-gym-tracker \"playwright test --headed\"",
+    "test:e2e:slow": "firebase emulators:exec --project demo-gym-tracker \"SLOWMO=1000 playwright test --headed\"",
+    "test:e2e:debug": "firebase emulators:exec --project demo-gym-tracker \"playwright test --debug\"",
+    "test:e2e:ui": "firebase emulators:exec --project demo-gym-tracker \"playwright test --ui\""
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",
@@ -63,10 +69,12 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@tailwindcss/postcss": "^4.1.9",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "firebase-tools": "^15.35.0",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",

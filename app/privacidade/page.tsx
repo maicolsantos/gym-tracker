@@ -17,7 +17,7 @@ export default function PrivacidadePage() {
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
-            <Link href="/">
+            <Link href="/" aria-label="Voltar para a página inicial">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>

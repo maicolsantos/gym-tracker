@@ -18,7 +18,7 @@ const FIREBASE_AUTH_ERRORS: Record<string, string> = {
 }
 
 export function Login() {
-  const { signInWithGoogle } = useAuth()
+  const { signInWithGoogle, signInForTesting } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -45,7 +45,7 @@ export function Login() {
               <Dumbbell className="h-8 w-8 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Tracker de Ginásio</CardTitle>
+          <CardTitle className="text-2xl" role="heading" aria-level={1}>Tracker de Ginásio</CardTitle>
           <CardDescription>Faça login para acompanhar os seus treinos</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -75,6 +75,30 @@ export function Login() {
             </svg>
             Continuar com Google
           </Button>
+          {process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true" && (
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full h-11 text-sm border border-dashed border-primary/50"
+              data-testid="e2e-login-button"
+              disabled={loading}
+              onClick={async () => {
+                if (signInForTesting) {
+                  setError(null)
+                  setLoading(true)
+                  try {
+                    await signInForTesting()
+                  } catch (err: unknown) {
+                    setError("Erro ao autenticar usuário de teste no emulador.")
+                  } finally {
+                    setLoading(false)
+                  }
+                }
+              }}
+            >
+              Entrar como Atleta Teste (E2E)
+            </Button>
+          )}
           {error && (
             <p className="text-sm text-destructive text-center mt-2">{error}</p>
           )}
