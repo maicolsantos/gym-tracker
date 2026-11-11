@@ -13,6 +13,21 @@ export const MONTHS = [
   "Dezembro",
 ]
 
+export const SHORT_MONTHS = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+]
+
 export const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
 
 export function getDaysInMonth(year: number, month: number) {

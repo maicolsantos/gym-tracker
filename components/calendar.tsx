@@ -2,13 +2,14 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/contexts/auth-context"
 import { useXp } from "@/hooks/use-xp"
-import { MONTHS, WEEKDAYS, formatDateKey, getDaysInMonth, getFirstDayOfMonth, getTodayDateKey } from "@/lib/date-utils"
+import { MONTHS, SHORT_MONTHS, WEEKDAYS, formatDateKey, getDaysInMonth, getFirstDayOfMonth, getTodayDateKey } from "@/lib/date-utils"
 import { getDb } from "@/lib/firebase"
 import { cn } from "@/lib/utils"
+import { PreviousYearItem, type YearSummary } from "@/components/previous-year-item"
+import type { MonthWorkoutData } from "@/components/year-workout-chart"
 import {
   getWorkoutLogs,
   removeWorkoutLog,
@@ -18,7 +19,7 @@ import {
 import { awardWorkoutXp, reverseWorkoutXp } from "@/lib/xp"
 import { XP_WORKOUT } from "@/lib/xp-config"
 import { arrayRemove, arrayUnion, doc, getDoc, setDoc, updateDoc } from "firebase/firestore"
-import { ChevronDown, ChevronLeft, ChevronRight, Dumbbell, Zap } from "lucide-react"
+import { ChevronLeft, ChevronRight, Dumbbell, Zap } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
 
@@ -29,14 +30,9 @@ interface XpFlash {
 
 interface MonthCount {
   monthName: string
+  monthShort?: string
   monthIndex: number
   count: number
-}
-
-interface YearSummary {
-  year: number
-  totalWorkouts: number
-  months: MonthCount[]
 }
 
 export function Calendar() {
@@ -203,14 +199,24 @@ export function Calendar() {
       months.set(m, (months.get(m) || 0) + 1)
     })
 
-    const formatMonths = (monthsMap: Map<number, number>, year: number): MonthCount[] => {
+    const formatMonths = (monthsMap: Map<number, number>, year: number): MonthWorkoutData[] => {
       return Array.from(monthsMap.entries())
         .sort(([a], [b]) => b - a)
         .map(([monthIndex, count]) => ({
           monthName: `${MONTHS[monthIndex]} ${year}`,
+          monthShort: SHORT_MONTHS[monthIndex],
           monthIndex,
           count,
         }))
+    }
+
+    const formatAllMonths = (monthsMap: Map<number, number>, year: number): MonthWorkoutData[] => {
+      return Array.from({ length: 12 }, (_, i) => ({
+        monthName: `${MONTHS[i]} ${year}`,
+        monthShort: SHORT_MONTHS[i],
+        monthIndex: i,
+        count: monthsMap.get(i) || 0,
+      }))
     }
 
     const currentMonthsMap = yearMap.get(todayYear) || new Map<number, number>()
@@ -225,11 +231,11 @@ export function Calendar() {
       .filter(([y]) => y !== todayYear)
       .sort(([y1], [y2]) => y2 - y1)
       .map(([year, monthsMap]) => {
-        const months = formatMonths(monthsMap, year)
+        const allMonths = formatAllMonths(monthsMap, year)
         return {
           year,
-          totalWorkouts: months.reduce((acc, m) => acc + m.count, 0),
-          months,
+          totalWorkouts: allMonths.reduce((acc, m) => acc + m.count, 0),
+          months: allMonths,
         }
       })
 
@@ -414,48 +420,5 @@ export function Calendar() {
         </Card>
       </div>
     </>
-  )
-}
-
-function PreviousYearItem({ yearData }: { yearData: YearSummary }) {
-  const [isOpen, setIsOpen] = useState(false)
-
-  return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-1">
-      <CollapsibleTrigger asChild>
-        <button
-          type="button"
-          className="flex w-full items-center justify-between p-2.5 rounded-lg bg-muted/60 hover:bg-muted transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <div className="flex items-center gap-2">
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 text-muted-foreground transition-transform duration-200 shrink-0",
-                isOpen && "rotate-180",
-              )}
-            />
-            <span className="text-sm font-semibold">{yearData.year}</span>
-          </div>
-          <span className="text-xs font-semibold bg-background px-2 py-1 rounded border border-border/40">
-            {yearData.totalWorkouts} {yearData.totalWorkouts === 1 ? "treino" : "treinos"}
-          </span>
-        </button>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="pt-1">
-        <ul className="space-y-1.5 pl-3 border-l-2 border-border/50 ml-3 py-1">
-          {yearData.months.map((m) => (
-            <li
-              key={m.monthIndex}
-              className="flex items-center justify-between p-2 rounded-md bg-muted/40 hover:bg-muted/70 transition-colors"
-            >
-              <span className="text-sm font-medium text-muted-foreground">{m.monthName}</span>
-              <span className="text-sm font-bold bg-background text-foreground px-2 py-1 rounded">
-                {m.count} {m.count === 1 ? "treino" : "treinos"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </CollapsibleContent>
-    </Collapsible>
   )
 }

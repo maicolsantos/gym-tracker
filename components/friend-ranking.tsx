@@ -2,185 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { Trophy, CalendarDays, ShoppingBag } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { fetchFriendWorkouts, fetchFriendProfiles } from "@/lib/friends"
 import type { UserProfile, FriendProfile } from "@/lib/friends"
 import { MONTHS } from "@/lib/date-utils"
-import { cn } from "@/lib/utils"
 import { ShopDialog } from "@/components/shop/shop-dialog"
 import { useXp } from "@/hooks/use-xp"
+import { RankingList, type RankingEntry } from "@/components/ranking-list"
+import { YearPodium } from "@/components/year-podium"
+import { RankingHistoryDialog } from "@/components/ranking-history-dialog"
 
-interface RankingEntry {
-  profile: FriendProfile
-  count: number
-  isCurrentUser: boolean
-}
-
-function getInitials(name: string): string {
-  const trimmed = name.trim()
-  if (!trimmed) return "?"
-  return trimmed
-    .split(" ")
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-}
-
-function getOrdinal(position: number): string {
-  const ordinals = ["1º", "2º", "3º", "4º", "5º", "6º", "7º", "8º", "9º", "10º"]
-  return ordinals[position - 1] ?? `${position}º`
-}
-
-interface FriendRankingProps {
+export interface FriendRankingProps {
   currentUid: string
   friendUids: string[]
   currentUserProfile: UserProfile | null
   currentUserWorkouts: Set<string>
-}
-
-function RankingList({
-  entries,
-  emptyMessage,
-}: {
-  entries: RankingEntry[]
-  emptyMessage: string
-}) {
-  const maxCount = entries[0]?.count ?? 0
-  const hasWorkouts = entries.some((e) => e.count > 0)
-
-  if (!hasWorkouts) {
-    return (
-      <p className="text-sm text-muted-foreground italic text-center py-4">{emptyMessage}</p>
-    )
-  }
-
-  return (
-    <ol className="space-y-2">
-      {entries.map((entry, idx) => (
-        <li
-          key={entry.profile.uid}
-          className={cn(
-            "flex items-center gap-4 p-2 rounded-lg",
-            entry.isCurrentUser && "bg-primary/10 border border-primary/20",
-          )}
-        >
-          <span className="text-sm font-bold w-6 text-center text-muted-foreground">
-            {getOrdinal(idx + 1)}
-          </span>
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={entry.profile.photoURL ?? undefined} alt={entry.profile.displayName} referrerPolicy="no-referrer" />
-            <AvatarFallback>{getInitials(entry.profile.displayName)}</AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">
-              {entry.isCurrentUser ? "Você" : entry.profile.displayName}
-            </p>
-            <Progress
-              value={maxCount > 0 ? (entry.count / maxCount) * 100 : 0}
-              className="h-1.5 mt-1"
-            />
-          </div>
-          <span className="text-sm font-bold tabular-nums w-8 text-right">{entry.count}</span>
-        </li>
-      ))}
-    </ol>
-  )
-}
-
-const PODIUM_SLOTS = [
-  { position: 2, emoji: "😢", podiumHeight: "h-14", avatarClass: "h-11 w-11", blockColor: "bg-slate-300 dark:bg-slate-600" },
-  { position: 1, emoji: "🎉", podiumHeight: "h-24", avatarClass: "h-16 w-16", blockColor: "bg-amber-400 dark:bg-amber-500" },
-  { position: 3, emoji: "😅", podiumHeight: "h-9",  avatarClass: "h-9 w-9",   blockColor: "bg-orange-300 dark:bg-orange-700" },
-] as const
-
-function YearPodium({ entries }: { entries: RankingEntry[] }) {
-  const hasWorkouts = entries.some((e) => e.count > 0)
-
-  if (!hasWorkouts) {
-    return (
-      <p className="text-sm text-muted-foreground italic text-center py-4">Nenhum treino este ano</p>
-    )
-  }
-
-  const rest = entries.slice(3)
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-end justify-center gap-3 pt-2 pb-1">
-        {PODIUM_SLOTS.map(({ position, emoji, podiumHeight, avatarClass, blockColor }) => {
-          const rawEntry = entries[position - 1] ?? null
-          const entry = rawEntry && rawEntry.count > 0 ? rawEntry : null
-          return (
-            <div key={position} className="flex flex-col items-center flex-1 min-w-0">
-              {entry ? (
-                <>
-                  <span className="text-lg mb-1">{emoji}</span>
-                  <Avatar className={avatarClass}>
-                    <AvatarImage src={entry.profile.photoURL ?? undefined} alt={entry.profile.displayName} referrerPolicy="no-referrer" />
-                    <AvatarFallback className="text-xs">{getInitials(entry.profile.displayName)}</AvatarFallback>
-                  </Avatar>
-                  <p className="text-xs font-medium mt-1 truncate max-w-full text-center px-1">
-                    {entry.isCurrentUser ? "Você" : entry.profile.displayName}
-                  </p>
-                  <p className={cn(
-                    "font-extrabold tabular-nums",
-                    position === 1 ? "text-base text-amber-600 dark:text-amber-400" : "text-sm",
-                  )}>
-                    {entry.count}
-                  </p>
-                </>
-              ) : (
-                <div className="flex-1" />
-              )}
-              <div className={cn(
-                "w-full rounded-t-lg mt-2 flex items-center justify-center",
-                podiumHeight,
-                entry ? blockColor : "bg-muted/50 border-2 border-dashed border-muted-foreground/30",
-              )}>
-                <span className={cn("text-xs font-bold drop-shadow", entry ? "text-white" : "text-muted-foreground")}>{getOrdinal(position)}</span>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {rest.length > 0 && (
-        <ol className="space-y-1 border-t pt-3">
-          {rest.map((entry, idx) => (
-            <li
-              key={entry.profile.uid}
-              className={cn(
-                "flex items-center gap-3 px-2 py-1.5 rounded-lg",
-                entry.isCurrentUser && "bg-primary/10 border border-primary/20",
-              )}
-            >
-              <span className="text-sm font-bold w-6 text-center text-muted-foreground">
-                {getOrdinal(idx + 4)}
-              </span>
-              <Avatar className="h-7 w-7">
-                <AvatarImage src={entry.profile.photoURL ?? undefined} alt={entry.profile.displayName} referrerPolicy="no-referrer" />
-                <AvatarFallback className="text-xs">{getInitials(entry.profile.displayName)}</AvatarFallback>
-              </Avatar>
-              <p className="flex-1 text-sm font-medium truncate">
-                {entry.isCurrentUser ? "Você" : entry.profile.displayName}
-              </p>
-              <span className="text-sm font-bold tabular-nums">{entry.count}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
-  )
 }
 
 export function FriendRanking({
@@ -425,122 +262,16 @@ export function FriendRanking({
         xpAvailable={xpAvailable}
       />
 
-      <Dialog open={showHistory} onOpenChange={setShowHistory}>
-        <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto overscroll-contain">
-          <DialogHeader className="space-y-2">
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" />
-              Histórico de Rankings
-            </DialogTitle>
-            {availableYears.length > 1 && (
-              <div className="flex items-center gap-1.5 overflow-x-auto pt-1 pb-0.5 no-scrollbar">
-                {availableYears.map((y) => (
-                  <Button
-                    key={y}
-                    type="button"
-                    variant={selectedHistoryYear === y ? "default" : "outline"}
-                    size="sm"
-                    className={cn(
-                      "h-7 text-xs px-2.5 rounded-full shrink-0 transition-colors",
-                      selectedHistoryYear === y && "font-semibold shadow-xs",
-                    )}
-                    onClick={() => setSelectedHistoryYear(y)}
-                  >
-                    {y} {y === currentYear ? "(Atual)" : ""}
-                  </Button>
-                ))}
-              </div>
-            )}
-          </DialogHeader>
-
-          <div className="space-y-4 pt-1">
-            {/* Pódio Final para Anos Anteriores */}
-            {selectedHistoryYear < currentYear && (
-              <div className="space-y-2 rounded-xl border bg-muted/20 p-3">
-                <div className="flex items-center gap-1.5 justify-center">
-                  <Trophy className="h-3.5 w-3.5 text-amber-500" />
-                  <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
-                    Pódio Final {selectedHistoryYear}
-                  </p>
-                  <Trophy className="h-3.5 w-3.5 text-amber-500" />
-                </div>
-                <YearPodium entries={selectedYearPodiumEntries} />
-              </div>
-            )}
-
-            {/* Lista dos Meses */}
-            <div className="space-y-3">
-              {selectedHistoryYear < currentYear && (
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
-                  Rankings Mensais {selectedHistoryYear}
-                </p>
-              )}
-
-              {selectedYearMonthsData.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic text-center py-4">
-                  Nenhum treino registrado em {selectedHistoryYear}
-                </p>
-              ) : (
-                selectedYearMonthsData.map(({ month: m, top3, hasWorkouts, maxCount }) => (
-                  <div key={m} className="rounded-xl border bg-muted/30 overflow-hidden">
-                    <div className="px-3 py-2 border-b bg-muted/50 flex items-center justify-between">
-                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                        {MONTHS[m]}
-                        {selectedHistoryYear !== currentYear ? ` ${selectedHistoryYear}` : ""}
-                      </p>
-                    </div>
-                    <div className="px-3 py-2">
-                      {!hasWorkouts ? (
-                        <p className="text-xs text-muted-foreground italic py-1">Sem treinos</p>
-                      ) : (
-                        <ol className="space-y-1.5">
-                          {top3
-                            .filter((e) => e.count > 0)
-                            .map((entry, idx) => (
-                              <li
-                                key={entry.profile.uid}
-                                className={cn(
-                                  "flex items-center gap-3 p-1.5 rounded-lg",
-                                  entry.isCurrentUser && "bg-primary/10 border border-primary/20",
-                                )}
-                              >
-                                <span className="text-xs font-bold w-5 text-center text-muted-foreground">
-                                  {getOrdinal(idx + 1)}
-                                </span>
-                                <Avatar className="h-7 w-7">
-                                  <AvatarImage
-                                    src={entry.profile.photoURL ?? undefined}
-                                    alt={entry.profile.displayName}
-                                    referrerPolicy="no-referrer"
-                                  />
-                                  <AvatarFallback className="text-xs">
-                                    {getInitials(entry.profile.displayName)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium truncate">
-                                    {entry.isCurrentUser ? "Você" : entry.profile.displayName}
-                                  </p>
-                                  <Progress
-                                    value={maxCount > 0 ? (entry.count / maxCount) * 100 : 0}
-                                    className="h-1 mt-1"
-                                  />
-                                </div>
-                                <span className="text-xs font-bold tabular-nums w-6 text-right">
-                                  {entry.count}
-                                </span>
-                              </li>
-                            ))}
-                        </ol>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <RankingHistoryDialog
+        open={showHistory}
+        onOpenChange={setShowHistory}
+        availableYears={availableYears}
+        selectedHistoryYear={selectedHistoryYear}
+        onSelectYear={setSelectedHistoryYear}
+        currentYear={currentYear}
+        selectedYearPodiumEntries={selectedYearPodiumEntries}
+        selectedYearMonthsData={selectedYearMonthsData}
+      />
     </>
   )
 }

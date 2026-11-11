@@ -1,12 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { UserX } from "lucide-react"
 import { toast } from "sonner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { removeFriend, fetchFriendProfiles } from "@/lib/friends"
+import { removeFriend } from "@/lib/friends"
 import type { FriendProfile } from "@/lib/friends"
 
 interface FriendListProps {
@@ -61,7 +60,11 @@ export function FriendList({ currentUid, friends, onFriendRemoved }: FriendListP
           className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
         >
           <Avatar className="h-8 w-8">
-            <AvatarImage src={friend.photoURL ?? undefined} alt={friend.displayName} />
+            <AvatarImage
+              src={friend.photoURL ?? undefined}
+              alt={friend.displayName}
+              referrerPolicy="no-referrer"
+            />
             <AvatarFallback>{getInitials(friend.displayName)}</AvatarFallback>
           </Avatar>
           <span className="flex-1 text-sm font-medium truncate">{friend.displayName}</span>
@@ -78,61 +81,5 @@ export function FriendList({ currentUid, friends, onFriendRemoved }: FriendListP
         </li>
       ))}
     </ul>
-  )
-}
-
-interface FriendListLoaderProps {
-  currentUid: string
-  friendUids: string[]
-  onFriendRemoved: (uid: string) => void
-}
-
-export function FriendListLoader({ currentUid, friendUids, onFriendRemoved }: FriendListLoaderProps) {
-  const [friends, setFriends] = useState<FriendProfile[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let mounted = true
-    setLoading(true)
-    if (friendUids.length === 0) {
-      setFriends([])
-      setLoading(false)
-      return () => { mounted = false }
-    }
-    fetchFriendProfiles(friendUids)
-      .then((profiles) => {
-        if (!mounted) return
-        setFriends(friendUids.flatMap((uid) => (profiles.get(uid) ? [profiles.get(uid)!] : [])))
-      })
-      .catch((err) => {
-        if (!mounted) return
-        console.error("Erro ao buscar perfis:", err)
-      })
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
-  }, [friendUids])
-
-  if (loading) {
-    return (
-      <div className="space-y-2">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center gap-3 p-2">
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <Skeleton className="h-4 flex-1" />
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  return (
-    <FriendList
-      currentUid={currentUid}
-      friends={friends}
-      onFriendRemoved={(uid) => {
-        setFriends((prev) => prev.filter((f) => f.uid !== uid))
-        onFriendRemoved(uid)
-      }}
-    />
   )
 }
