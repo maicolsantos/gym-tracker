@@ -9,7 +9,7 @@ import { MONTHS, SHORT_MONTHS, WEEKDAYS, formatDateKey, getDaysInMonth, getFirst
 import { getDb } from "@/lib/firebase"
 import { cn } from "@/lib/utils"
 import { PreviousYearItem, type YearSummary } from "@/components/previous-year-item"
-import type { MonthWorkoutData } from "@/components/year-workout-chart"
+import { YearWorkoutChart, type MonthWorkoutData } from "@/components/year-workout-chart"
 import {
   getWorkoutLogs,
   removeWorkoutLog,
@@ -182,7 +182,7 @@ export function Calendar() {
   const todayYear = new Date().getFullYear()
 
   // Partition workouts into current year and previous/other years
-  const { currentYearData, previousYearsData } = useMemo(() => {
+  const { currentYearData, currentYearAllMonths, previousYearsData } = useMemo(() => {
     const yearMap = new Map<number, Map<number, number>>()
 
     selectedDates.forEach((dateStr) => {
@@ -221,6 +221,7 @@ export function Calendar() {
 
     const currentMonthsMap = yearMap.get(todayYear) || new Map<number, number>()
     const currentMonths = formatMonths(currentMonthsMap, todayYear)
+    const currentYearAllMonths = formatAllMonths(currentMonthsMap, todayYear)
     const currentYearData: YearSummary = {
       year: todayYear,
       totalWorkouts: currentMonths.reduce((acc, m) => acc + m.count, 0),
@@ -239,7 +240,7 @@ export function Calendar() {
         }
       })
 
-    return { currentYearData, previousYearsData }
+    return { currentYearData, currentYearAllMonths, previousYearsData }
   }, [selectedDates, todayYear])
 
   const hasFutureYears = previousYearsData.some((y) => y.year > todayYear)
@@ -375,11 +376,22 @@ export function Calendar() {
               </div>
             </div>
 
-            {/* Monthly breakdown for current year */}
+            {/* Monthly breakdown / chart for current year */}
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-3">
                 Treinos em {todayYear}
               </h3>
+              
+              {/* Gráfico do ano atual (sem accordion/botão que abre o ano) */}
+              <div className="rounded-xl border border-border/80 bg-card/60 p-3 shadow-xs">
+                <YearWorkoutChart
+                  year={todayYear}
+                  totalWorkouts={currentYearData.totalWorkouts}
+                  months={currentYearAllMonths}
+                />
+              </div>
+
+              {/* Implementação anterior mantida (lista de meses):
               {currentYearData.months.length === 0 ? (
                 <p className="text-sm text-muted-foreground italic">
                   Nenhum treino registrado em {todayYear} ainda
@@ -399,6 +411,7 @@ export function Calendar() {
                   ))}
                 </ul>
               )}
+              */}
             </div>
 
             {/* Previous years collapsible section */}
